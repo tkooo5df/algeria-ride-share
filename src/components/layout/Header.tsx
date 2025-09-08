@@ -112,10 +112,12 @@ const Header = () => {
                   <Button 
                     variant="hero" 
                     size="sm"
-                    onClick={() => window.location.href = '/auth/signup'}
+                    onClick={() => {
+                      window.location.href = '/auth/signup';
+                    }}
                   >
                     {currentLang === "ar" ? "إنشاء حساب" : currentLang === "fr" ? "S'inscrire" : "Sign Up"}
-                      window.location.href = '/auth/signup';
+                  </Button>
                 </>
               )}
             </div>
