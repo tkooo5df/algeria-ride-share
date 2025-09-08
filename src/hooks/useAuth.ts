@@ -55,45 +55,59 @@ export const useAuth = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      const fetchProfile = async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+  const fetchProfile = async (userId: string) => {
+    try {
+      // First, try to get the profile
+      let { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, role, created_at')
+        .eq('id', userId)
+        .maybeSingle();
 
-        if (error) {
-          console.error('Error fetching profile:', error);
-          // If profile doesn't exist, create one
-          if (error.code === 'PGRST116') {
-            const { data: newProfile, error: createError } = await supabase
-              .from('profiles')
-              .insert([
-                {
-                  id: user.id,
-                  email: user.email,
-                  first_name: user.user_metadata?.first_name || '',
-                  last_name: user.user_metadata?.last_name || '',
-                  role: user.user_metadata?.role || 'passenger',
-                }
-              ])
-              .select()
-              .single();
+      if (error) {
+        // If profiles table doesn't exist or has different schema, create a basic profile
+        if (error.code === 'PGRST116' || error.code === 'PGRST204') {
+          // Try to create a basic profile entry
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) {
+            const basicProfile = {
+              id: userId,
+              email: userData.user.email,
+              role: 'passenger',
+              created_at: new Date().toISOString()
+            };
             
-            if (createError) {
-              console.error('Error creating profile:', createError);
-            } else {
-              setProfile(newProfile);
+            // Try to insert with minimal schema
+            const { data: insertData, error: insertError } = await supabase
+              .from('profiles')
+              .insert([basicProfile])
+              .select('id, email, role, created_at')
+              .single();
+              
+            if (!insertError) {
+              return insertData;
             }
           }
-        } else {
-          setProfile(data);
         }
+        console.error('Error fetching profile:', error.message);
+        return null;
+      }
+
+      return data || null;
+    } catch (error) {
+      console.error('Error in fetchProfile:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      const fetchUserProfile = async () => {
+        const profileData = await fetchProfile(user.id);
+        setProfile(profileData);
       };
 
-      fetchProfile();
+      fetchUserProfile();
       
       // Set up real-time subscription for profile changes
       const profileSubscription = supabase
