@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { wilayas } from "@/data/wilayas";
 
 const DriverOnboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -55,13 +56,6 @@ const DriverOnboarding = () => {
     experience: "",
     motivation: ""
   });
-
-  const wilayas = [
-    { code: "01", name: "أدرار" },
-    { code: "16", name: "الجزائر" },
-    { code: "31", name: "وهران" },
-    { code: "25", name: "قسنطينة" },
-  ];
 
   const vehicleCategories = [
     { value: "economy", label: "اقتصادي" },

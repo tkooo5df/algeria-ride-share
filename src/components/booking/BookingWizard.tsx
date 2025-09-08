@@ -21,6 +21,7 @@ import {
   Phone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { wilayas } from "@/data/wilayas";
 
 interface BookingStep {
   id: number;
@@ -96,14 +97,6 @@ const BookingWizard = () => {
     }
   ];
 
-  const wilayas = [
-    { code: "16", name: "الجزائر" },
-    { code: "31", name: "وهران" },
-    { code: "25", name: "قسنطينة" },
-    { code: "19", name: "سطيف" },
-    { code: "23", name: "عنابة" }
-  ];
-
   const nextStep = () => {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
@@ -137,7 +130,7 @@ const BookingWizard = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {wilayas.map((wilaya) => (
-                      <SelectItem key={wilaya.code} value={wilaya.name}>
+                      <SelectItem key={wilaya.code} value={wilaya.code}>
                         {wilaya.name}
                       </SelectItem>
                     ))}
@@ -155,7 +148,7 @@ const BookingWizard = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {wilayas.map((wilaya) => (
-                      <SelectItem key={wilaya.code} value={wilaya.name}>
+                      <SelectItem key={wilaya.code} value={wilaya.code}>
                         {wilaya.name}
                       </SelectItem>
                     ))}
