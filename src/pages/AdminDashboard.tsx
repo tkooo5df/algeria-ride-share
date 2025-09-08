@@ -53,6 +53,7 @@ import Footer from "@/components/layout/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface AdminStats {
   totalUsers: number;
@@ -93,6 +94,7 @@ interface Booking {
 
 const AdminDashboard = () => {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalDrivers: 0,
@@ -113,6 +115,11 @@ const AdminDashboard = () => {
 
   // Check if user is admin
   useEffect(() => {
+    if (profile === null) {
+      // Still loading profile
+      return;
+    }
+    
     if (profile && profile.role !== 'admin') {
       toast({
         title: "غير مصرح",
@@ -122,7 +129,7 @@ const AdminDashboard = () => {
       navigate('/');
       return;
     }
-  }, [profile]);
+  }, [profile, navigate]);
 
   // Fetch admin data
   useEffect(() => {
@@ -215,8 +222,10 @@ const AdminDashboard = () => {
       }
     };
 
-    if (profile?.role === 'admin') {
+    if (profile && profile.role === 'admin') {
       fetchAdminData();
+    } else if (profile && profile.role !== 'admin') {
+      setLoading(false);
     }
   }, [profile]);
 
