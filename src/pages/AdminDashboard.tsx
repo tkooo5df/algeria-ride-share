@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,7 +119,8 @@ const AdminDashboard = () => {
         description: "ليس لديك صلاحية للوصول إلى لوحة الإدارة",
         variant: "destructive"
       });
-      window.location.href = '/';
+      navigate('/');
+      return;
     }
   }, [profile]);
 

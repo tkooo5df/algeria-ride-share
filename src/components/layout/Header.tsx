@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Car, Menu, X, Globe, User, LogOut } from "lucide-react";
+import { Car, Menu, X, Globe, User, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +93,11 @@ const Header = () => {
                     <Link to={profile?.role === 'driver' ? "/driver/dashboard" : "/passenger/dashboard"} className="block px-4 py-2 text-sm text-foreground hover:bg-accent">
                       Dashboard
                     </Link>
+                   {profile?.role === 'admin' && (
+                     <Link to="/admin" className="block px-4 py-2 text-sm text-foreground hover:bg-accent">
+                       Admin Panel
+                     </Link>
+                   )}
                     <button
                       onClick={handleSignOut}
                       className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
@@ -109,6 +114,14 @@ const Header = () => {
                       {currentLang === "ar" ? "تسجيل الدخول" : currentLang === "fr" ? "Se connecter" : "Sign In"}
                     </Button>
                   </Link>
+                 {profile?.role === 'admin' && (
+                   <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                     <Button variant="ghost" size="sm" className="w-full justify-start">
+                       <Settings className="h-4 w-4 mr-2" />
+                       Admin Panel
+                     </Button>
+                   </Link>
+                 )}
                   <Button 
                     variant="hero" 
                     size="sm"
@@ -159,6 +172,11 @@ const Header = () => {
               >
                 {currentLang === "ar" ? "اتصل بنا" : currentLang === "fr" ? "Contact" : "Contact"}
               </Link>
+             {profile?.role === 'admin' && (
+               <Link to="/admin" className="text-foreground hover:text-primary transition-colors">
+                 {currentLang === "ar" ? "لوحة الإدارة" : currentLang === "fr" ? "Admin" : "Admin"}
+               </Link>
+             )}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 {session ? (
                   <>
