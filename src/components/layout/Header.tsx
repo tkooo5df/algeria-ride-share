@@ -115,7 +115,7 @@ const Header = () => {
                     onClick={() => window.location.href = '/auth/signup'}
                   >
                     {currentLang === "ar" ? "إنشاء حساب" : currentLang === "fr" ? "S'inscrire" : "Sign Up"}
-                  </Button>
+                      window.location.href = '/auth/signup';
                 </>
               )}
             </div>

@@ -117,7 +117,7 @@ const SignIn = () => {
             <p className="text-sm text-gray-600">
               ليس لديك حساب؟{" "}
               <Link
-                to="/signup"
+                to="/auth/signup"
                 className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
               >
                 إنشاء حساب جديد
