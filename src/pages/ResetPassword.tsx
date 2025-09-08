@@ -4,13 +4,32 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Eye, EyeOff, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if user has a valid session for password reset
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth/signin');
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,14 +37,26 @@ const ResetPassword = () => {
     setError(null);
     setSuccess(null);
 
+    // Validation
+    if (password.length < 6) {
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      setLoading(false);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("كلمات المرور غير متطابقة");
+      setLoading(false);
+      return;
+    }
+
     try {
-        const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         setError(error.message);
       } else {
-        setSuccess('Password updated successfully. You can now sign in with your new password.');
-        setTimeout(() => navigate('/auth/signin'), 3000);
+        setSuccess('تم تحديث كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.');
+        setTimeout(() => navigate('/auth/signin'), 2000);
       }
     } catch (error: any) {
       setError(error.message);
@@ -35,24 +66,45 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="flex items-center justify-center py-12">
-      <div className="mx-auto grid w-[350px] gap-6">
-        <div className="grid gap-2 text-center">
-          <h1 className="text-3xl font-bold">Reset Password</h1>
-          <p className="text-balance text-muted-foreground">
-            Enter your new password below.
-          </p>
-        </div>
-        <form onSubmit={handleResetPassword} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="password">New Password</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+    <div className="min-h-screen bg-background" dir="rtl">
+      <Header />
+      
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+                <Lock className="h-8 w-8 text-primary" />
+                إعادة تعيين كلمة المرور
+              </CardTitle>
+              <CardDescription>
+                أدخل كلمة المرور الجديدة
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">كلمة المرور الجديدة</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           {success && <p className="text-green-500 text-sm">{success}</p>}
@@ -65,4 +117,56 @@ const ResetPassword = () => {
   );
 };
 
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">تأكيد كلمة المرور</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                {/* Password Requirements */}
+                <div className="text-sm text-muted-foreground">
+                  <p>متطلبات كلمة المرور:</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li className={password.length >= 6 ? "text-green-600" : ""}>
+                      6 أحرف على الأقل
+                    </li>
+                    <li className={password === confirmPassword && password.length > 0 ? "text-green-600" : ""}>
+                      تطابق كلمات المرور
+                    </li>
+                  </ul>
+                </div>
+                      type={showConfirmPassword ? "text" : "password"}
+                {/* Error and Success Messages */}
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                      placeholder="أعد إدخال كلمة المرور"
+                {success && (
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>{success}</AlertDescription>
+                  </Alert>
+                )}
+                      required
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
+                </Button>
+              </form>
+                      value={confirmPassword}
+              {/* Help Text */}
+              <div className="text-center text-sm text-muted-foreground">
+                <p>بعد تحديث كلمة المرور، ستحتاج لتسجيل الدخول مرة أخرى.</p>
+              </div>
+            </CardContent>
+          </Card>
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+      </main>
+      
+      <Footer />
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
 export default ResetPassword;

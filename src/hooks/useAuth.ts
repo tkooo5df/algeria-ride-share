@@ -4,8 +4,19 @@ import { Session, User } from '@supabase/supabase-js';
 
 interface Profile {
   id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
   role: string;
-  // Add other profile properties as needed
+  avatar_url: string | null;
+  wilaya: string | null;
+  commune: string | null;
+  address: string | null;
+  date_of_birth: string | null;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useAuth = () => {
@@ -25,9 +36,15 @@ export const useAuth = () => {
     getSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Clear profile when signing out
+        if (event === 'SIGNED_OUT') {
+          setProfile(null);
+        }
+        
         setLoading(false);
       }
     );
@@ -48,14 +65,96 @@ export const useAuth = () => {
 
         if (error) {
           console.error('Error fetching profile:', error);
+          // If profile doesn't exist, create one
+          if (error.code === 'PGRST116') {
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: user.id,
+                  email: user.email,
+                  first_name: user.user_metadata?.first_name || '',
+                  last_name: user.user_metadata?.last_name || '',
+                  role: user.user_metadata?.role || 'passenger',
+                }
+              ])
+              .select()
+              .single();
+            
+            if (createError) {
+              console.error('Error creating profile:', createError);
+            } else {
+              setProfile(newProfile);
+            }
+          }
         } else {
           setProfile(data);
         }
       };
 
       fetchProfile();
+      
+      // Set up real-time subscription for profile changes
+      const profileSubscription = supabase
+        .channel('profile_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === 'UPDATE') {
+              setProfile(payload.new as Profile);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        profileSubscription.unsubscribe();
+      };
+    } else {
+      setProfile(null);
     }
   }, [user]);
 
-  return { session, user, profile, loading };
+  const updateProfile = async (updates: Partial<Profile>) => {
+    if (!user) return { error: 'No user logged in' };
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating profile:', error);
+      return { error: error.message };
+    }
+    
+    setProfile(data);
+    return { data };
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error);
+      return { error: error.message };
+    }
+    return { error: null };
+  };
+
+  return { 
+    session, 
+    user, 
+    profile, 
+    loading, 
+    updateProfile, 
+    signOut 
+  };
 };
