@@ -105,23 +105,29 @@ const ResetPassword = () => {
                     </button>
                   </div>
                 </div>
-          </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {success && <p className="text-green-500 text-sm">{success}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Resetting...' : 'Reset Password'}
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-};
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">تأكيد كلمة المرور</Label>
                   <div className="relative">
                     <Input
                       id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="أعد إدخال كلمة المرور"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Password Requirements */}
                 <div className="text-sm text-muted-foreground">
                   <p>متطلبات كلمة المرور:</p>
@@ -134,7 +140,7 @@ const ResetPassword = () => {
                     </li>
                   </ul>
                 </div>
-                      type={showConfirmPassword ? "text" : "password"}
+
                 {/* Error and Success Messages */}
                 {error && (
                   <Alert variant="destructive">
@@ -142,33 +148,31 @@ const ResetPassword = () => {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                      placeholder="أعد إدخال كلمة المرور"
+
                 {success && (
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>{success}</AlertDescription>
                   </Alert>
                 )}
-                      required
+
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
                 </Button>
               </form>
-                      value={confirmPassword}
+
               {/* Help Text */}
               <div className="text-center text-sm text-muted-foreground">
                 <p>بعد تحديث كلمة المرور، ستحتاج لتسجيل الدخول مرة أخرى.</p>
               </div>
             </CardContent>
           </Card>
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+        </div>
       </main>
       
       <Footer />
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-  )
-}
+    </div>
+  );
+};
+
 export default ResetPassword;
