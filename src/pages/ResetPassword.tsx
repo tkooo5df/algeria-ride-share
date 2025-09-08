@@ -169,4 +169,6 @@ const ResetPassword = () => {
                     </button>
                   </div>
                 </div>
+  )
+}
 export default ResetPassword;
