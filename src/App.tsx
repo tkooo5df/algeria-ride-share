@@ -18,6 +18,7 @@ import BookingConfirmation from "./pages/BookingConfirmation";
 import BestOffers from "./pages/BestOffers";
 import BookingForm from "./components/booking/BookingForm";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/passenger/dashboard" element={<PassengerDashboard />} />
             <Route path="/driver/dashboard" element={<DriverDashboard />} />
             <Route path="/driver" element={<DriverOnboarding />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Route>
           <Route path="/about" element={<About />} />
           <Route path="/auth/signup" element={<SignUp />} />
