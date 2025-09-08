@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
+import { toast } from '@/hooks/use-toast';
 
 interface Profile {
   id: string;
@@ -156,5 +157,50 @@ export const useAuth = () => {
     loading, 
     updateProfile, 
     signOut 
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Error signing in with Google:', error);
+      throw error;
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Error signing in:', error);
+      throw error;
+    }
+  };
+
+  return { 
+    session, 
+    user, 
+    profile, 
+    loading, 
+    updateProfile, 
+    signOut,
+    signInWithGoogle,
+    signIn
   };
 };

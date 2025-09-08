@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -26,6 +26,7 @@ const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -169,22 +170,27 @@ const SignUp = () => {
   };
 
   const handleGoogleSignUp = async () => {
-    setLoading(true);
+    setGoogleLoading(true);
     setError(null);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
       if (error) {
-        setError(error.message);
+        throw error;
       }
+      // Note: The redirect will happen automatically
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || "حدث خطأ أثناء التسجيل بـ Google");
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -408,9 +414,10 @@ const SignUp = () => {
                     variant="outline" 
                     className="w-full" 
                     onClick={handleGoogleSignUp}
-                    disabled={loading}
+                    disabled={loading || googleLoading}
                   >
-                    التسجيل باستخدام Google
+                    <Chrome className="h-4 w-4 mr-2" />
+                    {googleLoading ? "جاري التسجيل..." : "التسجيل باستخدام Google"}
                   </Button>
                 </div>
               </form>
