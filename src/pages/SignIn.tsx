@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
-import { Eye, EyeOff, Mail, Lock, Chrome } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Chrome, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -16,6 +17,7 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,6 +25,19 @@ const SignIn = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
+
+    // Basic validation
+    if (!email.trim()) {
+      setError("البريد الإلكتروني مطلوب");
+      setIsLoading(false);
+      return;
+    }
+    if (!password.trim()) {
+      setError("كلمة المرور مطلوبة");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       await signIn(email, password);
@@ -32,11 +47,17 @@ const SignIn = () => {
       });
       navigate('/');
     } catch (error: any) {
-      toast({
-        title: "خطأ في تسجيل الدخول",
-        description: error.message || "يرجى التحقق من بياناتك والمحاولة مرة أخرى",
-        variant: "destructive",
-      });
+      let errorMessage = "يرجى التحقق من بياناتك والمحاولة مرة أخرى";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "يرجى تأكيد بريدك الإلكتروني أولاً";
+      } else if (error.message.includes("Too many requests")) {
+        errorMessage = "محاولات كثيرة جداً، يرجى المحاولة لاحقاً";
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -44,19 +65,17 @@ const SignIn = () => {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
+    setError(null);
     try {
       await signInWithGoogle();
       // Note: The redirect will happen automatically, so we don't need to navigate manually
     } catch (error: any) {
-      toast({
-        title: "خطأ في تسجيل الدخول بـ Google",
-        description: error.message || "حدث خطأ أثناء تسجيل الدخول بـ Google",
-        variant: "destructive",
-      });
+      setError("حدث خطأ أثناء تسجيل الدخول بـ Google");
     } finally {
       setIsGoogleLoading(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <Header />
@@ -96,6 +115,12 @@ const SignIn = () => {
                 </div>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">البريد الإلكتروني</Label>

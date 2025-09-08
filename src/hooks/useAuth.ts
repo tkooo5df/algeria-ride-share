@@ -150,15 +150,6 @@ export const useAuth = () => {
     return { error: null };
   };
 
-  return { 
-    session, 
-    user, 
-    profile, 
-    loading, 
-    updateProfile, 
-    signOut 
-  };
-
   const signInWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -192,7 +183,6 @@ export const useAuth = () => {
       throw error;
     }
   };
-
   return { 
     session, 
     user, 
