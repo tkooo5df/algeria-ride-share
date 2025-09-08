@@ -89,22 +89,26 @@ const ForgotPassword = () => {
                     />
                   </div>
                 </div>
-          </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {success && <p className="text-green-500 text-sm">{success}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+
+                {error && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
                 {success && (
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>{success}</AlertDescription>
                   </Alert>
                 )}
-            {loading ? "Sending..." : "Send Reset Link"}
+
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "جاري الإرسال..." : "إرسال رابط إعادة التعيين"}
                 </Button>
               </form>
-          </Button>
+
               {/* Back to Sign In */}
               <div className="text-center">
                 <Link 
@@ -115,19 +119,19 @@ const ForgotPassword = () => {
                   العودة إلى تسجيل الدخول
                 </Link>
               </div>
-        </form>
+
               {/* Help Text */}
               <div className="text-center text-sm text-muted-foreground">
                 <p>لم تتلق الرسالة؟ تحقق من مجلد الرسائل غير المرغوب فيها أو جرب مرة أخرى.</p>
               </div>
             </CardContent>
           </Card>
-        <div className="mt-4 text-center text-sm">
+        </div>
       </main>
       
       <Footer />
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
+    </div>
+  );
 };
-                )}
+
 export default ForgotPassword;
