@@ -19,6 +19,13 @@ const SignUp = () => {
     setLoading(true);
     setError(null);
 
+    // Validate password before sending to Supabase
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
