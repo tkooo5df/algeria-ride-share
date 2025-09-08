@@ -31,8 +31,16 @@ const HeroSection = () => {
   };
 
   const handleSearch = () => {
-    console.log("Search form:", searchForm);
-    // Will navigate to search results
+    if (searchForm.fromWilaya && searchForm.toWilaya && searchForm.date) {
+      const searchParams = new URLSearchParams({
+        pickup: searchForm.fromWilaya,
+        destination: searchForm.toWilaya,
+        date: searchForm.date,
+        time: searchForm.time || "08:00",
+        passengers: searchForm.passengers || "1"
+      });
+      window.location.href = `/best-offers?${searchParams.toString()}`;
+    }
   };
 
   return (
