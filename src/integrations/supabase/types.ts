@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          id: number
+          created_at: string
+          pickup_location: string
+          destination_location: string
+          passenger_id: string | null
+          driver_id: string | null
+          status: string
+        }
+        Insert: {
+          id?: never
+          created_at?: string
+          pickup_location: string
+          destination_location: string
+          passenger_id?: string | null
+          driver_id?: string | null
+          status?: string
+        }
+        Update: {
+          id?: never
+          created_at?: string
+          pickup_location?: string
+          destination_location?: string
+          passenger_id?: string | null
+          driver_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
