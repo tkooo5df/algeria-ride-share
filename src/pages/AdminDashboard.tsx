@@ -50,7 +50,6 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
@@ -92,145 +91,113 @@ interface Booking {
 }
 
 const AdminDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<AdminStats>({
-    totalUsers: 0,
-    totalDrivers: 0,
-    totalBookings: 0,
-    totalRevenue: 0,
-    activeTrips: 0,
-    pendingApprovals: 0,
-    monthlyGrowth: 0,
-    userGrowth: 0
-  });
-  
-  const [users, setUsers] = useState<User[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Demo data - loaded immediately
+  const stats: AdminStats = {
+    totalUsers: 1247,
+    totalDrivers: 342,
+    totalBookings: 2156,
+    totalRevenue: 2456780,
+    activeTrips: 89,
+    pendingApprovals: 15,
+    monthlyGrowth: 28.9,
+    userGrowth: 23.5
+  };
+
+  const users: User[] = [
+    {
+      id: "1",
+      email: "ahmed@example.com",
+      role: "passenger",
+      status: "active",
+      created_at: "2024-01-15",
+      last_sign_in: "2024-01-20",
+      profile: {
+        first_name: "أحمد",
+        last_name: "محمد",
+        phone: "+213 555 123 456",
+        wilaya: "16"
+      }
+    },
+    {
+      id: "2",
+      email: "fatima@example.com",
+      role: "driver",
+      status: "pending",
+      created_at: "2024-01-10",
+      last_sign_in: "2024-01-19",
+      profile: {
+        first_name: "فاطمة",
+        last_name: "بن علي",
+        phone: "+213 555 789 012",
+        wilaya: "31"
+      }
+    },
+    {
+      id: "3",
+      email: "youssef@example.com",
+      role: "driver",
+      status: "active",
+      created_at: "2024-01-05",
+      last_sign_in: "2024-01-20",
+      profile: {
+        first_name: "يوسف",
+        last_name: "كريم",
+        phone: "+213 555 456 789",
+        wilaya: "25"
+      }
+    }
+  ];
+
+  const bookings: Booking[] = [
+    {
+      id: "BK001",
+      pickup_location: "الجزائر العاصمة",
+      destination_location: "وهران",
+      status: "confirmed",
+      created_at: "2024-01-20",
+      price: 2500
+    },
+    {
+      id: "BK002",
+      pickup_location: "قسنطينة",
+      destination_location: "سطيف",
+      status: "pending",
+      created_at: "2024-01-19",
+      price: 1200
+    }
+  ];
 
   useEffect(() => {
-    // Simplified admin check - for demo purposes, allow access
-    const checkAdminAccess = () => {
-      if (profile === null) {
-        // Still loading
-        return;
-      }
-      
-      // For demo purposes, allow access if user is logged in
-      if (user) {
-        setIsAdmin(true);
-        loadDemoData();
-      } else {
-        navigate('/auth/signin');
-      }
-    };
-
-    const loadDemoData = () => {
-      // Load demo data immediately
-      const mockUsers: User[] = [
-        {
-          id: "1",
-          email: "ahmed@example.com",
-          role: "passenger",
-          status: "active",
-          created_at: "2024-01-15",
-          last_sign_in: "2024-01-20",
-          profile: {
-            first_name: "أحمد",
-            last_name: "محمد",
-            phone: "+213 555 123 456",
-            wilaya: "16"
-          }
-        },
-        {
-          id: "2",
-          email: "fatima@example.com",
-          role: "driver",
-          status: "pending",
-          created_at: "2024-01-10",
-          last_sign_in: "2024-01-19",
-          profile: {
-            first_name: "فاطمة",
-            last_name: "بن علي",
-            phone: "+213 555 789 012",
-            wilaya: "31"
-          }
-        },
-        {
-          id: "3",
-          email: "youssef@example.com",
-          role: "driver",
-          status: "active",
-          created_at: "2024-01-05",
-          last_sign_in: "2024-01-20",
-          profile: {
-            first_name: "يوسف",
-            last_name: "كريم",
-            phone: "+213 555 456 789",
-            wilaya: "25"
-          }
-        }
-      ];
-
-      const mockBookings: Booking[] = [
-        {
-          id: "BK001",
-          pickup_location: "الجزائر العاصمة",
-          destination_location: "وهران",
-          status: "confirmed",
-          created_at: "2024-01-20",
-          price: 2500
-        },
-        {
-          id: "BK002",
-          pickup_location: "قسنطينة",
-          destination_location: "سطيف",
-          status: "pending",
-          created_at: "2024-01-19",
-          price: 1200
-        }
-      ];
-
-      setUsers(mockUsers);
-      setBookings(mockBookings);
-      
-      setStats({
-        totalUsers: 1247,
-        totalDrivers: 342,
-        totalBookings: 2156,
-        totalRevenue: 2456780,
-        activeTrips: 89,
-        pendingApprovals: 15,
-        monthlyGrowth: 28.9,
-        userGrowth: 23.5
-      });
-      
-      setLoading(false);
-    };
-
-    checkAdminAccess();
-  }, [user, profile, navigate]);
+    // Simple check - if no user, redirect to signin
+    if (!user) {
+      navigate('/auth/signin');
+      return;
+    }
+    // For demo, allow any logged-in user to access admin panel
+    setLoading(false);
+  }, [user, navigate]);
 
   const getStatusBadge = (status: string, type: "user" | "booking" = "user") => {
     if (type === "user") {
       const userStatuses = {
-        active: { label: "نشط", variant: "default" as const, color: "bg-green-100 text-green-800" },
-        pending: { label: "في الانتظار", variant: "secondary" as const, color: "bg-yellow-100 text-yellow-800" },
-        suspended: { label: "موقوف", variant: "destructive" as const, color: "bg-red-100 text-red-800" },
-        banned: { label: "محظور", variant: "destructive" as const, color: "bg-red-100 text-red-800" }
+        active: { label: "نشط", color: "bg-green-100 text-green-800" },
+        pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800" },
+        suspended: { label: "موقوف", color: "bg-red-100 text-red-800" },
+        banned: { label: "محظور", color: "bg-red-100 text-red-800" }
       };
       return userStatuses[status as keyof typeof userStatuses] || userStatuses.active;
     } else {
       const bookingStatuses = {
-        confirmed: { label: "مؤكد", variant: "default" as const, color: "bg-green-100 text-green-800" },
-        pending: { label: "في الانتظار", variant: "secondary" as const, color: "bg-yellow-100 text-yellow-800" },
-        completed: { label: "مكتمل", variant: "outline" as const, color: "bg-blue-100 text-blue-800" },
-        cancelled: { label: "ملغي", variant: "destructive" as const, color: "bg-red-100 text-red-800" }
+        confirmed: { label: "مؤكد", color: "bg-green-100 text-green-800" },
+        pending: { label: "في الانتظار", color: "bg-yellow-100 text-yellow-800" },
+        completed: { label: "مكتمل", color: "bg-blue-100 text-blue-800" },
+        cancelled: { label: "ملغي", color: "bg-red-100 text-red-800" }
       };
       return bookingStatuses[status as keyof typeof bookingStatuses] || bookingStatuses.pending;
     }
@@ -247,7 +214,6 @@ const AdminDashboard = () => {
 
   const handleUserAction = async (userId: string, action: string) => {
     try {
-      // Here you would typically make API calls to update user status
       console.log(`${action} user ${userId}`);
       toast({
         title: "تم بنجاح",
@@ -270,7 +236,8 @@ const AdminDashboard = () => {
     return matchesSearch && matchesRole;
   });
 
-  if (loading) {
+  // Show loading only if user is not loaded yet
+  if (!user) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -292,7 +259,7 @@ const AdminDashboard = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Admin Header */}
+        {/* Admin Header with Demo Badge */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -305,13 +272,13 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Badge className="bg-yellow-500 text-yellow-900 font-bold">
-                DEMO VERSION
+              <Badge className="bg-yellow-500 text-yellow-900 font-bold text-lg px-4 py-2">
+                🚀 DEMO VERSION
               </Badge>
-            <div className="text-right">
-              <div className="text-sm text-white/80">آخر تحديث</div>
-              <div className="text-lg font-semibold">{new Date().toLocaleDateString('ar-DZ')}</div>
-            </div>
+              <div className="text-right">
+                <div className="text-sm text-white/80">آخر تحديث</div>
+                <div className="text-lg font-semibold">{new Date().toLocaleDateString('ar-DZ')}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -378,6 +345,14 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Demo Alert */}
+        <Alert className="border-yellow-200 bg-yellow-50">
+          <Zap className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800">
+            <strong>🎯 نسخة تجريبية:</strong> هذه لوحة إدارة تجريبية تعرض جميع الوظائف والإمكانيات. البيانات المعروضة هي بيانات تجريبية للتوضيح فقط.
+          </AlertDescription>
+        </Alert>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -604,7 +579,6 @@ const AdminDashboard = () => {
                       </div>
                       
                       <div className="flex gap-2">
-                    <CardDescription>إحصائيات اليوم الحالي</CardDescription>
                         <Button size="sm" variant="outline">
                           <Eye className="h-4 w-4 mr-2" />
                           الملف
@@ -620,14 +594,6 @@ const AdminDashboard = () => {
                           </Button>
                         )}
                       </div>
-                      <div className="flex justify-between">
-                        <span>سائقون نشطون</span>
-                        <span className="font-bold">156</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>متوسط التقييم</span>
-                        <span className="font-bold">4.8 ⭐</span>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -635,7 +601,6 @@ const AdminDashboard = () => {
             </div>
           </TabsContent>
 
-                    <CardDescription>إحصائيات الأسبوع الحالي</CardDescription>
           {/* Bookings Management */}
           <TabsContent value="bookings" className="space-y-4">
             <Alert className="border-green-200 bg-green-50">
@@ -710,14 +675,6 @@ const AdminDashboard = () => {
                             </Button>
                           )}
                         </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>رحلات مكتملة</span>
-                        <span className="font-bold">187</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>معدل الإلغاء</span>
-                        <span className="font-bold">3.2%</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -883,6 +840,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>تقرير يومي</CardTitle>
+                  <CardDescription>إحصائيات اليوم الحالي</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -909,6 +867,7 @@ const AdminDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>تقرير أسبوعي</CardTitle>
+                  <CardDescription>إحصائيات الأسبوع الحالي</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -917,8 +876,20 @@ const AdminDashboard = () => {
                       <span className="font-bold">156</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>سائقون جدد</span>
-                      <span className="font-bold">23</span>
+                      <span>سائقون نشطون</span>
+                      <span className="font-bold">156</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>متوسط التقييم</span>
+                      <span className="font-bold">4.8 ⭐</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>رحلات مكتملة</span>
+                      <span className="font-bold">187</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>معدل الإلغاء</span>
+                      <span className="font-bold">3.2%</span>
                     </div>
                     <div className="flex justify-between">
                       <span>إجمالي الإيرادات</span>
@@ -934,8 +905,8 @@ const AdminDashboard = () => {
 
               <Card>
                 <CardHeader>
-                    <CardDescription>إحصائيات الشهر الحالي</CardDescription>
                   <CardTitle>تقرير شهري</CardTitle>
+                  <CardDescription>إحصائيات الشهر الحالي</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -950,14 +921,14 @@ const AdminDashboard = () => {
                     <div className="flex justify-between">
                       <span>الإيرادات الشهرية</span>
                       <span className="font-bold">1,456,780 دج</span>
-                      <div className="flex justify-between">
-                        <span>نمو المستخدمين</span>
-                        <span className="font-bold">+23.5%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>رضا العملاء</span>
-                        <span className="font-bold">96.8%</span>
-                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>نمو المستخدمين</span>
+                      <span className="font-bold">+23.5%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>رضا العملاء</span>
+                      <span className="font-bold">96.8%</span>
                     </div>
                   </div>
                   <Button variant="outline" className="w-full mt-4">
