@@ -93,7 +93,7 @@ const BestOffers = () => {
   // Mock data for demonstration
   const mockOffers: TripOffer[] = [
     {
-      id: "1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       driver: {
         name: "أحمد محمد",
         rating: 4.9,
@@ -139,7 +139,7 @@ const BestOffers = () => {
       isFavorite: false
     },
     {
-      id: "2",
+      id: "550e8400-e29b-41d4-a716-446655440002",
       driver: {
         name: "فاطمة بن علي",
         rating: 4.8,
@@ -183,7 +183,7 @@ const BestOffers = () => {
       isFavorite: true
     },
     {
-      id: "3",
+      id: "550e8400-e29b-41d4-a716-446655440003",
       driver: {
         name: "يوسف كريم",
         rating: 4.7,

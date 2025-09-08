@@ -63,7 +63,7 @@ const BookingWizard = () => {
 
   const mockDrivers: Driver[] = [
     {
-      id: "1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       name: "أحمد محمد",
       rating: 4.9,
       reviews: 156,
@@ -74,7 +74,7 @@ const BookingWizard = () => {
       verified: true
     },
     {
-      id: "2", 
+      id: "550e8400-e29b-41d4-a716-446655440002", 
       name: "فاطمة بن علي",
       rating: 4.8,
       reviews: 203,
@@ -85,7 +85,7 @@ const BookingWizard = () => {
       verified: true
     },
     {
-      id: "3",
+      id: "550e8400-e29b-41d4-a716-446655440003",
       name: "يوسف كريم",
       rating: 4.7,
       reviews: 89,
