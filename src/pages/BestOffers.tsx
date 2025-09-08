@@ -274,7 +274,7 @@ const BestOffers = () => {
   const handleBooking = (offerId: string) => {
     const offer = offers.find(o => o.id === offerId);
     if (offer) {
-      navigate(`/booking-confirmation?pickup=${pickup}&destination=${destination}&driverName=${offer.driver.name}&driverCar=${offer.vehicle.brand} ${offer.vehicle.model}&driverId=${offerId}`);
+      navigate(`/booking-form?pickup=${pickup}&destination=${destination}&driverName=${offer.driver.name}&driverCar=${offer.vehicle.brand} ${offer.vehicle.model}&driverId=${offerId}&price=${offer.pricing.price}&date=${date}&passengers=${passengers}`);
     }
   };
 

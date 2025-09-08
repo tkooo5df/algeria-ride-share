@@ -16,6 +16,7 @@ import ResetPassword from "./pages/ResetPassword";
 import RideSearchResults from "./pages/RideSearchResults";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import BestOffers from "./pages/BestOffers";
+import BookingForm from "./components/booking/BookingForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/ride-search" element={<RideSearchResults />} />
           <Route path="/best-offers" element={<BestOffers />} />
           <Route path="/booking-confirmation" element={<BookingConfirmation />} />
+          <Route path="/booking-form" element={<BookingForm />} />
           <Route path="/contact" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
