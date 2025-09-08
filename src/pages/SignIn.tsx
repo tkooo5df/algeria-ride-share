@@ -170,11 +170,3 @@ const SignIn = () => {
 };
 
 export default SignIn;
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default SignIn;
