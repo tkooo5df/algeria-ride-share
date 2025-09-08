@@ -204,13 +204,13 @@ const AdminDashboard = () => {
         
         // Calculate stats
         setStats({
-          totalUsers: mockUsers.length,
-          totalDrivers: mockUsers.filter(u => u.role === 'driver').length,
-          totalBookings: mockBookings.length,
-          totalRevenue: mockBookings.reduce((sum, b) => sum + (b.price || 0), 0),
-          activeTrips: mockBookings.filter(b => b.status === 'confirmed').length,
-          pendingApprovals: mockUsers.filter(u => u.status === 'pending').length,
-          monthlyGrowth: 15.2,
+          totalUsers: 1247,
+          totalDrivers: 342,
+          totalBookings: 2156,
+          totalRevenue: 2456780,
+          activeTrips: 89,
+          pendingApprovals: 15,
+          monthlyGrowth: 28.9,
           userGrowth: 23.5
         });
         
@@ -312,13 +312,18 @@ const AdminDashboard = () => {
                 <Shield className="h-8 w-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">لوحة تحكم المدير</h1>
-                <p className="text-white/90">إدارة شاملة لنظام DZ Taxi</p>
+                <h1 className="text-3xl font-bold">لوحة تحكم المدير - نسخة تجريبية</h1>
+                <p className="text-white/90">إدارة شاملة لنظام DZ Taxi (بيانات تجريبية)</p>
               </div>
             </div>
+            <div className="flex flex-col items-end gap-2">
+              <Badge className="bg-yellow-500 text-yellow-900 font-bold">
+                DEMO VERSION
+              </Badge>
             <div className="text-right">
               <div className="text-sm text-white/80">آخر تحديث</div>
               <div className="text-lg font-semibold">{new Date().toLocaleDateString('ar-DZ')}</div>
+            </div>
             </div>
           </div>
         </div>
@@ -332,9 +337,9 @@ const AdminDashboard = () => {
                   <Users className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalUsers}</div>
+                  <div className="text-2xl font-bold">1,247</div>
                   <div className="text-sm text-muted-foreground">إجمالي المستخدمين</div>
-                  <div className="text-xs text-green-600">+{stats.userGrowth}% هذا الشهر</div>
+                  <div className="text-xs text-green-600">+23.5% هذا الشهر</div>
                 </div>
               </div>
             </CardContent>
@@ -347,7 +352,7 @@ const AdminDashboard = () => {
                   <Car className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalDrivers}</div>
+                  <div className="text-2xl font-bold">342</div>
                   <div className="text-sm text-muted-foreground">السائقون النشطون</div>
                   <div className="text-xs text-blue-600">+12 هذا الأسبوع</div>
                 </div>
@@ -362,9 +367,9 @@ const AdminDashboard = () => {
                   <Briefcase className="h-6 w-6 text-purple-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalBookings}</div>
+                  <div className="text-2xl font-bold">2,156</div>
                   <div className="text-sm text-muted-foreground">إجمالي الحجوزات</div>
-                  <div className="text-xs text-purple-600">{stats.activeTrips} نشط</div>
+                  <div className="text-xs text-purple-600">89 نشط</div>
                 </div>
               </div>
             </CardContent>
@@ -377,9 +382,9 @@ const AdminDashboard = () => {
                   <DollarSign className="h-6 w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalRevenue.toLocaleString()} دج</div>
+                  <div className="text-2xl font-bold">2,456,780 دج</div>
                   <div className="text-sm text-muted-foreground">الإيرادات الشهرية</div>
-                  <div className="text-xs text-green-600">+{stats.monthlyGrowth}% نمو</div>
+                  <div className="text-xs text-green-600">+28.9% نمو</div>
                 </div>
               </div>
             </CardContent>
@@ -391,7 +396,7 @@ const AdminDashboard = () => {
           <Card className="hover:shadow-lg transition-all cursor-pointer">
             <CardContent className="p-4 text-center">
               <AlertTriangle className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-              <div className="text-lg font-bold">{stats.pendingApprovals}</div>
+              <div className="text-lg font-bold">15</div>
               <div className="text-sm text-muted-foreground">طلبات معلقة</div>
             </CardContent>
           </Card>
@@ -434,6 +439,13 @@ const AdminDashboard = () => {
 
           {/* Users Management */}
           <TabsContent value="users" className="space-y-4">
+            <Alert className="border-yellow-200 bg-yellow-50">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                <strong>نسخة تجريبية:</strong> هذه بيانات تجريبية لعرض وظائف لوحة الإدارة. في النسخة الحقيقية، ستظهر البيانات الفعلية من قاعدة البيانات.
+              </AlertDescription>
+            </Alert>
+
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">إدارة المستخدمين</h2>
               <div className="flex gap-2">
@@ -554,6 +566,13 @@ const AdminDashboard = () => {
 
           {/* Drivers Management */}
           <TabsContent value="drivers" className="space-y-4">
+            <Alert className="border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>إدارة السائقين:</strong> يمكنك هنا مراجعة طلبات السائقين الجدد، إدارة الوثائق، ومراقبة الأداء.
+              </AlertDescription>
+            </Alert>
+
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">إدارة السائقين</h2>
               <Button size="sm">
@@ -597,6 +616,7 @@ const AdminDashboard = () => {
                       </div>
                       
                       <div className="flex gap-2">
+                    <CardDescription>إحصائيات اليوم الحالي</CardDescription>
                         <Button size="sm" variant="outline">
                           <Eye className="h-4 w-4 mr-2" />
                           الملف
@@ -612,6 +632,14 @@ const AdminDashboard = () => {
                           </Button>
                         )}
                       </div>
+                      <div className="flex justify-between">
+                        <span>سائقون نشطون</span>
+                        <span className="font-bold">156</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>متوسط التقييم</span>
+                        <span className="font-bold">4.8 ⭐</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -619,8 +647,16 @@ const AdminDashboard = () => {
             </div>
           </TabsContent>
 
+                    <CardDescription>إحصائيات الأسبوع الحالي</CardDescription>
           {/* Bookings Management */}
           <TabsContent value="bookings" className="space-y-4">
+            <Alert className="border-green-200 bg-green-50">
+              <AlertCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <strong>إدارة الحجوزات:</strong> مراقبة جميع الحجوزات في الوقت الفعلي مع إمكانية التدخل عند الحاجة.
+              </AlertDescription>
+            </Alert>
+
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">إدارة الحجوزات</h2>
               <div className="flex gap-2">
@@ -687,6 +723,14 @@ const AdminDashboard = () => {
                           )}
                         </div>
                       </div>
+                      <div className="flex justify-between">
+                        <span>رحلات مكتملة</span>
+                        <span className="font-bold">187</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>معدل الإلغاء</span>
+                        <span className="font-bold">3.2%</span>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -696,6 +740,13 @@ const AdminDashboard = () => {
 
           {/* Analytics */}
           <TabsContent value="analytics" className="space-y-6">
+            <Alert className="border-purple-200 bg-purple-50">
+              <BarChart3 className="h-4 w-4 text-purple-600" />
+              <AlertDescription className="text-purple-800">
+                <strong>التحليلات المتقدمة:</strong> رؤى شاملة حول أداء النظام ونمو الأعمال مع تقارير تفاعلية.
+              </AlertDescription>
+            </Alert>
+
             <h2 className="text-2xl font-bold">التحليلات والإحصائيات</h2>
             
             <div className="grid md:grid-cols-2 gap-6">
@@ -775,6 +826,13 @@ const AdminDashboard = () => {
 
           {/* Settings */}
           <TabsContent value="settings" className="space-y-6">
+            <Alert className="border-gray-200 bg-gray-50">
+              <Settings className="h-4 w-4 text-gray-600" />
+              <AlertDescription className="text-gray-800">
+                <strong>إعدادات النظام:</strong> تحكم كامل في إعدادات الموقع، طرق الدفع، والأمان.
+              </AlertDescription>
+            </Alert>
+
             <h2 className="text-2xl font-bold">إعدادات النظام</h2>
             
             <div className="grid md:grid-cols-2 gap-6">
@@ -824,6 +882,13 @@ const AdminDashboard = () => {
 
           {/* Reports */}
           <TabsContent value="reports" className="space-y-6">
+            <Alert className="border-indigo-200 bg-indigo-50">
+              <FileText className="h-4 w-4 text-indigo-600" />
+              <AlertDescription className="text-indigo-800">
+                <strong>التقارير التفصيلية:</strong> تقارير شاملة يومية وأسبوعية وشهرية مع إمكانية التصدير.
+              </AlertDescription>
+            </Alert>
+
             <h2 className="text-2xl font-bold">التقارير والإحصائيات</h2>
             
             <div className="grid md:grid-cols-3 gap-6">
@@ -881,6 +946,7 @@ const AdminDashboard = () => {
 
               <Card>
                 <CardHeader>
+                    <CardDescription>إحصائيات الشهر الحالي</CardDescription>
                   <CardTitle>تقرير شهري</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -896,6 +962,14 @@ const AdminDashboard = () => {
                     <div className="flex justify-between">
                       <span>الإيرادات الشهرية</span>
                       <span className="font-bold">1,456,780 دج</span>
+                      <div className="flex justify-between">
+                        <span>نمو المستخدمين</span>
+                        <span className="font-bold">+23.5%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>رضا العملاء</span>
+                        <span className="font-bold">96.8%</span>
+                      </div>
                     </div>
                   </div>
                   <Button variant="outline" className="w-full mt-4">
