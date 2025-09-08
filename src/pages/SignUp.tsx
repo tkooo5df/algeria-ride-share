@@ -255,15 +255,25 @@ const SignUp = () => {
                     />
                   </div>
                 </div>
-          </div>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        <img
-          src="/placeholder.svg"
-          alt="Image"
-          width="1920"
-          height="1080"
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="أدخل بريدك الإلكتروني"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Contact Information */}
                 <div className="space-y-2">
                   <Label htmlFor="phone">رقم الهاتف</Label>
                   <div className="relative">
@@ -278,7 +288,7 @@ const SignUp = () => {
                     />
                   </div>
                 </div>
-          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+
                 {/* Location */}
                 <div className="space-y-2">
                   <Label htmlFor="wilaya">الولاية</Label>
@@ -298,7 +308,7 @@ const SignUp = () => {
                     </Select>
                   </div>
                 </div>
-        />
+
                 {/* Password Fields */}
                 <div className="space-y-2">
                   <Label htmlFor="password">كلمة المرور *</Label>
@@ -321,7 +331,7 @@ const SignUp = () => {
                     </button>
                   </div>
                 </div>
-      </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">تأكيد كلمة المرور *</Label>
                   <div className="relative">
@@ -343,7 +353,7 @@ const SignUp = () => {
                     </button>
                   </div>
                 </div>
-    </div>
+
                 {/* Terms and Conditions */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -362,7 +372,7 @@ const SignUp = () => {
                     </Link>
                   </Label>
                 </div>
-  );
+
                 {/* Error and Success Messages */}
                 {error && (
                   <Alert variant="destructive">
@@ -370,7 +380,7 @@ const SignUp = () => {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-}
+
                 {success && (
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
@@ -404,7 +414,7 @@ const SignUp = () => {
                   </Button>
                 </div>
               </form>
-                {/* Contact Information */}
+
               <div className="text-center text-sm">
                 لديك حساب بالفعل؟{" "}
                 <Link to="/auth/signin" className="text-primary hover:underline font-medium">
@@ -413,12 +423,12 @@ const SignUp = () => {
               </div>
             </CardContent>
           </Card>
-                <div className="space-y-2">
+        </div>
       </main>
       
       <Footer />
-                      className="pl-10"
-                    />
+    </div>
+  );
 };
-                </div>
+
 export default SignUp;
