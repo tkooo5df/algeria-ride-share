@@ -61,7 +61,7 @@ interface Notification {
 interface User {
   id: string;
   email: string;
-  full_name: string;
+  full_name?: string;
   phone?: string;
   role: string;
   is_verified: boolean;
@@ -77,13 +77,13 @@ interface Booking {
   seats_booked: number;
   payment_method: string;
   created_at: string;
-  passenger: {
-    full_name: string;
+  passenger?: {
+    full_name?: string;
     phone?: string;
     email: string;
   };
   driver?: {
-    full_name: string;
+    full_name?: string;
     phone?: string;
   };
 }
@@ -99,8 +99,8 @@ interface Trip {
   total_seats: number;
   is_active: boolean;
   created_at: string;
-  driver: {
-    full_name: string;
+  driver?: {
+    full_name?: string;
     phone?: string;
   };
   vehicle?: {
@@ -224,15 +224,40 @@ const AdminDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('bookings')
-        .select(`
-          *,
-          passenger:profiles!rider_id(full_name, phone, email),
-          driver:profiles!driver_id(full_name, phone)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setBookings(data || []);
+      
+      // Fetch passenger and driver details separately
+      const bookingsWithDetails = await Promise.all(
+        (data || []).map(async (booking) => {
+          let passenger = null;
+          let driver = null;
+          
+          if (booking.passenger_id) {
+            const { data: passengerData } = await supabase
+              .from('profiles')
+              .select('full_name, phone, email')
+              .eq('id', booking.passenger_id)
+              .single();
+            passenger = passengerData;
+          }
+          
+          if (booking.driver_id) {
+            const { data: driverData } = await supabase
+              .from('profiles')
+              .select('full_name, phone')
+              .eq('id', booking.driver_id)
+              .single();
+            driver = driverData;
+          }
+          
+          return { ...booking, passenger, driver };
+        })
+      );
+      
+      setBookings(bookingsWithDetails);
     } catch (error) {
       console.error('Error fetching bookings:', error);
     }
@@ -243,15 +268,40 @@ const AdminDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('trips')
-        .select(`
-          *,
-          driver:profiles!trips_driver_id_fkey(full_name, phone),
-          vehicle:vehicles!trips_vehicle_id_fkey(make, model, license_plate)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTrips(data || []);
+      
+      // Fetch driver and vehicle details separately
+      const tripsWithDetails = await Promise.all(
+        (data || []).map(async (trip) => {
+          let driver = null;
+          let vehicle = null;
+          
+          if (trip.driver_id) {
+            const { data: driverData } = await supabase
+              .from('profiles')
+              .select('full_name, phone')
+              .eq('id', trip.driver_id)
+              .single();
+            driver = driverData;
+          }
+          
+          if (trip.vehicle_id) {
+            const { data: vehicleData } = await supabase
+              .from('vehicles')
+              .select('make, model, license_plate')
+              .eq('id', trip.vehicle_id)
+              .single();
+            vehicle = vehicleData;
+          }
+          
+          return { ...trip, driver, vehicle };
+        })
+      );
+      
+      setTrips(tripsWithDetails);
     } catch (error) {
       console.error('Error fetching trips:', error);
     }
@@ -743,13 +793,13 @@ const AdminDashboard = () => {
                           <Avatar className="h-12 w-12">
                             <AvatarImage src="/placeholder.svg" />
                             <AvatarFallback>
-                              {user.full_name?.charAt(0) || user.email.charAt(0)}
+                              {(user.full_name || user.email)?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
                           
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold">{user.full_name || "غير محدد"}</h3>
+                              <h3 className="font-semibold">{user.full_name || user.email}</h3>
                               <Badge className={roleInfo.color}>{roleInfo.label}</Badge>
                               {user.is_verified && (
                                 <Shield className="h-4 w-4 text-green-600" />
@@ -816,12 +866,12 @@ const AdminDashboard = () => {
                       <div className="flex items-center gap-4">
                         <Avatar className="h-12 w-12">
                           <AvatarImage src="/placeholder.svg" />
-                          <AvatarFallback>{driver.full_name?.charAt(0)}</AvatarFallback>
+                          <AvatarFallback>{(driver.full_name || driver.email)?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{driver.full_name}</h3>
+                            <h3 className="font-semibold">{driver.full_name || driver.email}</h3>
                             {driver.is_verified ? (
                               <Badge className="bg-green-100 text-green-800">معتمد</Badge>
                             ) : (
@@ -902,7 +952,7 @@ const AdminDashboard = () => {
                           <h3 className="font-semibold text-lg">{booking.passenger?.full_name}</h3>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Mail className="h-3 w-3" />
-                            <span>{booking.passenger?.email}</span>
+                            <span>{booking.passenger?.email || 'غير محدد'}</span>
                           </div>
                           {booking.passenger?.phone && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
