@@ -57,43 +57,43 @@ export const useAuth = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // First, try to get the profile
+      // First, try to get the profile with all required fields
       let { data, error } = await supabase
         .from('profiles')
-        .select('id, email, role, created_at')
+        .select('id, email, full_name, phone, role, avatar_url, is_verified, language, created_at, updated_at')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        // If profiles table doesn't exist or has different schema, create a basic profile
-        if (error.code === 'PGRST116' || error.code === 'PGRST204') {
-          // Try to create a basic profile entry
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData.user) {
-            const basicProfile = {
-              id: userId,
-              email: userData.user.email,
-              role: 'passenger',
-              created_at: new Date().toISOString()
-            };
+      // If no profile exists or there was an error, create one
+      if (!data || error) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const profileData = {
+            id: userId,
+            email: userData.user.email || '',
+            full_name: userData.user.user_metadata?.full_name || userData.user.user_metadata?.name || '',
+            phone: userData.user.user_metadata?.phone || null,
+            role: 'rider',
+            avatar_url: userData.user.user_metadata?.avatar_url || null,
+            is_verified: false,
+            language: 'ar'
+          };
+          
+          const { data: insertData, error: insertError } = await supabase
+            .from('profiles')
+            .insert([profileData])
+            .select('id, email, full_name, phone, role, avatar_url, is_verified, language, created_at, updated_at')
+            .single();
             
-            // Try to insert with minimal schema
-            const { data: insertData, error: insertError } = await supabase
-              .from('profiles')
-              .insert([basicProfile])
-              .select('id, email, role, created_at')
-              .single();
-              
-            if (!insertError) {
-              return insertData;
-            }
+          if (!insertError && insertData) {
+            return insertData;
+          } else {
+            console.error('Error creating profile:', insertError);
           }
         }
-        console.error('Error fetching profile:', error.message);
-        return null;
       }
 
-      return data || null;
+      return data;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
       return null;
