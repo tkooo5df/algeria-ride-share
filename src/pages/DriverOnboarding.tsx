@@ -104,8 +104,49 @@ const DriverOnboarding = () => {
 
   const handleSubmit = () => {
     console.log("Driver application submitted:", formData);
-    // Here you would typically send the data to your backend
-    alert("تم إرسال طلبك بنجاح! سنتواصل معك قريباً.");
+    handleDriverApplication();
+  };
+
+  const handleDriverApplication = async () => {
+    try {
+      // Create driver profile (this would typically be done during signup)
+      // For demo purposes, we'll create a notification for admins
+      
+      // Get all admin users
+      const { data: adminProfiles, error: adminError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (adminError) {
+        console.error('Error fetching admin profiles:', adminError);
+        return;
+      }
+
+      // Create notifications for all admins about new driver application
+      const notifications = adminProfiles?.map(admin => ({
+        user_id: admin.id,
+        type: 'system' as const,
+        title: 'طلب سائق جديد',
+        message: `طلب انضمام جديد من ${formData.firstName} ${formData.lastName} - ${formData.vehicleBrand} ${formData.vehicleModel}`,
+        is_read: false
+      })) || [];
+
+      if (notifications.length > 0) {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notificationError) {
+          console.error('Error creating notifications:', notificationError);
+        }
+      }
+
+      alert("تم إرسال طلبك بنجاح! سنتواصل معك قريباً.");
+    } catch (error) {
+      console.error('Error submitting driver application:', error);
+      alert("حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.");
+    }
   };
 
   return (
