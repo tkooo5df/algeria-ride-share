@@ -124,11 +124,13 @@ const DriverDemo = () => {
 
   // Fetch driver's trips
   const fetchTrips = async () => {
+    if (!currentUserId) return;
+    
     try {
       const { data, error } = await supabase
         .from('trips')
         .select('*')
-        .eq('driver_id', demoDriverId)
+        .eq('driver_id', currentUserId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
