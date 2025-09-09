@@ -89,9 +89,18 @@ const DriverDemo = () => {
   const [loading, setLoading] = useState(true);
   const [showAddTrip, setShowAddTrip] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Demo driver ID (you can change this to test with different drivers)
-  const demoDriverId = "c8018cd9-ab09-4ce4-b7e3-4b0631fb16c1";
+  // Get current authenticated user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   const [newTrip, setNewTrip] = useState({
     from_wilaya_id: "",
@@ -131,12 +140,14 @@ const DriverDemo = () => {
 
   // Fetch bookings for driver's trips
   const fetchBookings = async () => {
+    if (!currentUserId) return;
+    
     try {
       // First get all trip IDs for this driver
       const { data: driverTrips } = await supabase
         .from('trips')
         .select('id')
-        .eq('driver_id', demoDriverId);
+        .eq('driver_id', currentUserId);
 
       if (!driverTrips || driverTrips.length === 0) {
         setBookings([]);
@@ -178,11 +189,13 @@ const DriverDemo = () => {
 
   // Fetch driver's vehicles
   const fetchVehicles = async () => {
+    if (!currentUserId) return;
+    
     try {
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
-        .eq('driver_id', demoDriverId);
+        .eq('driver_id', currentUserId);
 
       if (error) throw error;
       setVehicles(data || []);
@@ -193,6 +206,15 @@ const DriverDemo = () => {
 
   // Create new trip
   const handleCreateTrip = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "خطأ",
+        description: "يجب تسجيل الدخول أولاً",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       if (!newTrip.from_wilaya_id || !newTrip.to_wilaya_id || !newTrip.departure_date || 
           !newTrip.departure_time || !newTrip.price_per_seat) {
@@ -207,7 +229,7 @@ const DriverDemo = () => {
       const { data, error } = await supabase
         .from('trips')
         .insert([{
-          driver_id: demoDriverId,
+          driver_id: currentUserId,
           vehicle_id: newTrip.vehicle_id || vehicles[0]?.id,
           from_wilaya_id: parseInt(newTrip.from_wilaya_id),
           to_wilaya_id: parseInt(newTrip.to_wilaya_id),
@@ -275,6 +297,15 @@ const DriverDemo = () => {
 
   // Create new vehicle
   const handleCreateVehicle = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "خطأ",
+        description: "يجب تسجيل الدخول أولاً",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       if (!newVehicle.make || !newVehicle.model || !newVehicle.year || 
           !newVehicle.color || !newVehicle.license_plate) {
@@ -289,7 +320,7 @@ const DriverDemo = () => {
       const { error } = await supabase
         .from('vehicles')
         .insert([{
-          driver_id: demoDriverId,
+          driver_id: currentUserId,
           make: newVehicle.make,
           model: newVehicle.model,
           year: parseInt(newVehicle.year),
@@ -380,6 +411,8 @@ const DriverDemo = () => {
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
+      if (!currentUserId) return;
+      
       setLoading(true);
       await Promise.all([
         fetchTrips(),
@@ -400,7 +433,7 @@ const DriverDemo = () => {
           event: '*',
           schema: 'public',
           table: 'trips',
-          filter: `driver_id=eq.${demoDriverId}`
+          filter: `driver_id=eq.${currentUserId}`
         },
         () => {
           fetchTrips();
@@ -427,7 +460,7 @@ const DriverDemo = () => {
       tripsSubscription.unsubscribe();
       bookingsSubscription.unsubscribe();
     };
-  }, []);
+  }, [currentUserId]);
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -448,6 +481,25 @@ const DriverDemo = () => {
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">جاري تحميل لوحة السائق...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!currentUserId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">يجب تسجيل الدخول</h2>
+              <p className="text-muted-foreground mb-4">يجب تسجيل الدخول للوصول إلى لوحة السائق</p>
+              <Button onClick={() => window.location.href = '/signin'}>
+                تسجيل الدخول
+              </Button>
             </div>
           </div>
         </main>
