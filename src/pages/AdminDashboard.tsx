@@ -52,6 +52,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminStats {
   totalUsers: number;
@@ -90,12 +91,23 @@ interface Booking {
   price?: number;
 }
 
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  related_id?: string;
+}
 const AdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Demo data - loaded immediately
   const stats: AdminStats = {
@@ -173,6 +185,84 @@ const AdminDashboard = () => {
     }
   ];
 
+  // Load notifications from Supabase
+  const loadNotifications = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error loading notifications:', error);
+        return;
+      }
+
+      setNotifications(data || []);
+      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+    } catch (error) {
+      console.error('Error in loadNotifications:', error);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (!error) {
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Subscribe to real-time notifications
+  useEffect(() => {
+    if (!user) return;
+
+    loadNotifications();
+
+    // Set up real-time subscription for new notifications
+    const notificationSubscription = supabase
+      .channel('admin_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newNotification = payload.new as Notification;
+          setNotifications(prev => [newNotification, ...prev]);
+          setUnreadCount(prev => prev + 1);
+          
+          // Show toast notification
+          toast({
+            title: newNotification.title,
+            description: newNotification.message,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      notificationSubscription.unsubscribe();
+    };
+  }, [user]);
   useEffect(() => {
     // Simple check - if no user, redirect to signin
     if (!user) {
@@ -275,6 +365,27 @@ const AdminDashboard = () => {
               <Badge className="bg-yellow-500 text-yellow-900 font-bold text-lg px-4 py-2">
                 🚀 DEMO VERSION
               </Badge>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  onClick={() => {
+                    // Mark all notifications as read
+                    notifications.forEach(n => {
+                      if (!n.is_read) markAsRead(n.id);
+                    });
+                  }}
+                >
+                  <Bell className="h-4 w-4 mr-2" />
+                  الإشعارات
+                  {unreadCount > 0 && (
+                    <Badge className="bg-red-500 text-white ml-2 px-2 py-1 text-xs">
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
               <div className="text-right">
                 <div className="text-sm text-white/80">آخر تحديث</div>
                 <div className="text-lg font-semibold">{new Date().toLocaleDateString('ar-DZ')}</div>
@@ -283,6 +394,64 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* Notifications Section */}
+        {notifications.length > 0 && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-blue-600" />
+                الإشعارات الحديثة ({unreadCount} غير مقروء)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {notifications.slice(0, 5).map((notification) => (
+                  <div 
+                    key={notification.id}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      notification.is_read 
+                        ? 'bg-white border-gray-200' 
+                        : 'bg-blue-50 border-blue-300 shadow-sm'
+                    }`}
+                    onClick={() => markAsRead(notification.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-medium ${!notification.is_read ? 'text-blue-900' : 'text-gray-900'}`}>
+                            {notification.title}
+                          </h4>
+                          {!notification.is_read && (
+                            <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {new Date(notification.created_at).toLocaleString('ar-DZ')}
+                        </p>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          notification.type === 'booking' ? 'border-green-300 text-green-700' : 'border-gray-300'
+                        }`}
+                      >
+                        {notification.type === 'booking' ? 'حجز' : notification.type}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {notifications.length > 5 && (
+                <div className="text-center mt-3">
+                  <Button variant="outline" size="sm">
+                    عرض جميع الإشعارات ({notifications.length})
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <Card className="col-span-2">

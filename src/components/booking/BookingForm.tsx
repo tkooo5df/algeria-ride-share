@@ -83,6 +83,42 @@ const BookingForm = () => {
     return true;
   };
 
+  const createNotificationForAdmins = async (bookingId: string) => {
+    try {
+      // Get all admin users
+      const { data: adminProfiles, error: adminError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (adminError) {
+        console.error('Error fetching admin profiles:', adminError);
+        return;
+      }
+
+      // Create notifications for all admins
+      const notifications = adminProfiles?.map(admin => ({
+        user_id: admin.id,
+        type: 'booking' as const,
+        title: 'حجز جديد',
+        message: `حجز جديد من ${formData.firstName} ${formData.lastName} من ${pickup} إلى ${destination}`,
+        related_id: bookingId,
+        is_read: false
+      })) || [];
+
+      if (notifications.length > 0) {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notificationError) {
+          console.error('Error creating notifications:', notificationError);
+        }
+      }
+    } catch (error) {
+      console.error('Error in createNotificationForAdmins:', error);
+    }
+  };
   const handleConfirmBooking = async () => {
     setError(null);
     
@@ -98,20 +134,28 @@ const BookingForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("bookings").insert([
+      const { data: bookingData, error } = await supabase.from("bookings").insert([
         {
           pickup_location: pickup,
           destination_location: destination,
           passenger_id: user.id,
           driver_id: driverId,
           total_amount: parseFloat(price),
-          status: "pending"
+          status: "pending",
+          seats_booked: parseInt(passengers),
+          payment_method: formData.paymentMethod === "cash" ? "cod" : "baridimob",
+          special_requests: formData.specialRequests
         },
-      ]);
+      ]).select('id').single();
 
       if (error) {
         setError("حدث خطأ أثناء إنشاء الحجز: " + error.message);
       } else {
+        // Create notification for admins
+        if (bookingData?.id) {
+          await createNotificationForAdmins(bookingData.id);
+        }
+
         toast({
           title: "تم تأكيد الحجز بنجاح!",
           description: "سيتم التواصل معك قريباً لتأكيد التفاصيل",
