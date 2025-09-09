@@ -37,6 +37,7 @@ import Footer from "@/components/layout/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { wilayas, getWilayaByCode } from "@/data/wilayas";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Trip {
   id: string;
@@ -83,24 +84,13 @@ interface Vehicle {
 }
 
 const DriverDemo = () => {
+  const { user, profile, loading: authLoading } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddTrip, setShowAddTrip] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  // Get current authenticated user ID
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    };
-    getCurrentUser();
-  }, []);
 
   const [newTrip, setNewTrip] = useState({
     from_wilaya_id: "",
@@ -124,13 +114,13 @@ const DriverDemo = () => {
 
   // Fetch driver's trips
   const fetchTrips = async () => {
-    if (!currentUserId) return;
+    if (!user?.id) return;
     
     try {
       const { data, error } = await supabase
         .from('trips')
         .select('*')
-        .eq('driver_id', currentUserId)
+        .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -142,14 +132,14 @@ const DriverDemo = () => {
 
   // Fetch bookings for driver's trips
   const fetchBookings = async () => {
-    if (!currentUserId) return;
+    if (!user?.id) return;
     
     try {
       // First get all trip IDs for this driver
       const { data: driverTrips } = await supabase
         .from('trips')
         .select('id')
-        .eq('driver_id', currentUserId);
+        .eq('driver_id', user.id);
 
       if (!driverTrips || driverTrips.length === 0) {
         setBookings([]);
@@ -191,13 +181,13 @@ const DriverDemo = () => {
 
   // Fetch driver's vehicles
   const fetchVehicles = async () => {
-    if (!currentUserId) return;
+    if (!user?.id) return;
     
     try {
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
-        .eq('driver_id', currentUserId);
+        .eq('driver_id', user.id);
 
       if (error) throw error;
       setVehicles(data || []);
@@ -208,7 +198,7 @@ const DriverDemo = () => {
 
   // Create new trip
   const handleCreateTrip = async () => {
-    if (!currentUserId) {
+    if (!user?.id) {
       toast({
         title: "خطأ",
         description: "يجب تسجيل الدخول أولاً",
@@ -231,7 +221,7 @@ const DriverDemo = () => {
       const { data, error } = await supabase
         .from('trips')
         .insert([{
-          driver_id: currentUserId,
+          driver_id: user.id,
           vehicle_id: newTrip.vehicle_id || vehicles[0]?.id,
           from_wilaya_id: parseInt(newTrip.from_wilaya_id),
           to_wilaya_id: parseInt(newTrip.to_wilaya_id),
@@ -299,7 +289,7 @@ const DriverDemo = () => {
 
   // Create new vehicle
   const handleCreateVehicle = async () => {
-    if (!currentUserId) {
+    if (!user?.id) {
       toast({
         title: "خطأ",
         description: "يجب تسجيل الدخول أولاً",
@@ -322,7 +312,7 @@ const DriverDemo = () => {
       const { error } = await supabase
         .from('vehicles')
         .insert([{
-          driver_id: currentUserId,
+          driver_id: user.id,
           make: newVehicle.make,
           model: newVehicle.model,
           year: parseInt(newVehicle.year),
@@ -413,7 +403,7 @@ const DriverDemo = () => {
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
-      if (!currentUserId) return;
+      if (!user?.id || !profile) return;
       
       setLoading(true);
       await Promise.all([
@@ -427,42 +417,44 @@ const DriverDemo = () => {
     loadData();
 
     // Set up real-time subscriptions
-    const tripsSubscription = supabase
-      .channel('driver_trips')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trips',
-          filter: `driver_id=eq.${currentUserId}`
-        },
-        () => {
-          fetchTrips();
-        }
-      )
-      .subscribe();
+    if (user?.id) {
+      const tripsSubscription = supabase
+        .channel('driver_trips')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'trips',
+            filter: `driver_id=eq.${user.id}`
+          },
+          () => {
+            fetchTrips();
+          }
+        )
+        .subscribe();
 
-    const bookingsSubscription = supabase
-      .channel('driver_bookings')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bookings'
-        },
-        () => {
-          fetchBookings();
-        }
-      )
-      .subscribe();
+      const bookingsSubscription = supabase
+        .channel('driver_bookings')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'bookings'
+          },
+          () => {
+            fetchBookings();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      tripsSubscription.unsubscribe();
-      bookingsSubscription.unsubscribe();
-    };
-  }, [currentUserId]);
+      return () => {
+        tripsSubscription.unsubscribe();
+        bookingsSubscription.unsubscribe();
+      };
+    }
+  }, [user, profile]);
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -474,7 +466,7 @@ const DriverDemo = () => {
     return statusMap[status as keyof typeof statusMap] || statusMap.pending;
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -490,7 +482,7 @@ const DriverDemo = () => {
     );
   }
 
-  if (!currentUserId) {
+  if (!user || !profile) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
