@@ -104,6 +104,7 @@ const BookingForm = () => {
           destination_location: destination,
           passenger_id: user.id,
           driver_id: driverId,
+          total_amount: parseFloat(price),
           status: "pending"
         },
       ]);
