@@ -91,7 +91,7 @@ const DriverDemo = () => {
   const [showAddVehicle, setShowAddVehicle] = useState(false);
 
   // Demo driver ID (you can change this to test with different drivers)
-  const demoDriverId = "demo-driver-123";
+  const demoDriverId = "c8018cd9-ab09-4ce4-b7e3-4b0631fb16c1";
 
   const [newTrip, setNewTrip] = useState({
     from_wilaya_id: "",
