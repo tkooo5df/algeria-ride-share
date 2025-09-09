@@ -974,11 +974,11 @@ const DriverDemo = () => {
 
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4 mr-2" />
+                          <Edit className="h-4 w-4 mr-2" onClick={() => handleEditTrip(trip)} />
                           تعديل
                         </Button>
                         <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4 mr-2" />
+                          <Eye className="h-4 w-4 mr-2" onClick={() => handleViewBookings(trip.id)} />
                           عرض الحجوزات
                         </Button>
                         <Button 
