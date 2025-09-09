@@ -19,6 +19,7 @@ import BestOffers from "./pages/BestOffers";
 import BookingForm from "./components/booking/BookingForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminDashboard from "./pages/AdminDashboard";
+import DriverDemo from "./pages/DriverDemo";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/driver" element={<DriverOnboarding />} />
             <Route path="/admin" element={<AdminDashboard />} />
           </Route>
+          <Route path="/driver-demo" element={<DriverDemo />} />
           <Route path="/about" element={<About />} />
           <Route path="/auth/signup" element={<SignUp />} />
           <Route path="/auth/signin" element={<SignIn />} />
