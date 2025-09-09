@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Calendar,
   Clock,
@@ -32,87 +33,206 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import { wilayas } from "@/data/wilayas";
 
 const DriverDashboard = () => {
+  const { user } = useAuth();
   const [currentLang] = useState("ar");
+  const [showAddTrip, setShowAddTrip] = useState(false);
+  const [newTrip, setNewTrip] = useState({
+    from_wilaya_id: "",
+    to_wilaya_id: "",
+    departure_date: "",
+    departure_time: "",
+    price_per_seat: "",
+    total_seats: "4",
+    description: ""
+  });
 
-  // Mock data
-  const vehicles = [
-    {
-      id: "V001",
-      brand: "Toyota",
-      model: "Corolla",
-      year: "2020",
-      color: "أبيض",
-      plate: "16-123-45",
-      seats: 4,
-      category: "اقتصادي",
-      status: "active",
-      image: "/placeholder.svg"
-    },
-    {
-      id: "V002", 
-      brand: "Hyundai",
-      model: "Accent", 
-      year: "2019",
-      color: "أزرق",
-      plate: "31-789-12",
-      seats: 4,
-      category: "اقتصادي", 
-      status: "inactive",
-      image: "/placeholder.svg"
-    }
-  ];
+  const [vehicles, setVehicles] = useState([]);
+  const [trips, setTrips] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const trips = [
-    {
-      id: "T001",
-      from: "الجزائر العاصمة",
-      to: "وهران",
-      date: "2024-01-15", 
-      time: "08:00",
-      price: "2500 DA",
-      totalSeats: 4,
-      bookedSeats: 2,
-      status: "active",
-      vehicle: "Toyota Corolla"
-    },
-    {
-      id: "T002",
-      from: "قسنطينة", 
-      to: "سطيف",
-      date: "2024-01-20",
-      time: "14:30",
-      price: "1200 DA", 
-      totalSeats: 4,
-      bookedSeats: 4,
-      status: "full",
-      vehicle: "Toyota Corolla"
-    }
-  ];
+  // Fetch driver's vehicles
+  const fetchVehicles = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('driver_id', user.id);
 
-  const bookings = [
-    {
-      id: "BK001",
-      passenger: "أحمد محمد",
-      phone: "+213 555 123 456",
-      tripId: "T001",
-      seats: 2,
-      status: "confirmed",
-      payment: "نقدي",
-      amount: "2500 DA"
-    },
-    {
-      id: "BK002",
-      passenger: "فاطمة بن علي", 
-      phone: "+213 555 789 012",
-      tripId: "T001",
-      seats: 1,
-      status: "pending",
-      payment: "بريدي موب",
-      amount: "1200 DA"
+      if (error) throw error;
+      setVehicles(data || []);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
     }
-  ];
+  };
+
+  // Fetch driver's trips
+  const fetchTrips = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          from_wilaya:wilayas!trips_from_wilaya_id_fkey(name_ar),
+          to_wilaya:wilayas!trips_to_wilaya_id_fkey(name_ar),
+          vehicle:vehicles(make, model)
+        `)
+        .eq('driver_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTrips(data || []);
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+    }
+  };
+
+  // Fetch bookings for driver's trips
+  const fetchBookings = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          passenger:profiles!bookings_passenger_id_fkey(full_name, phone, email),
+          trip:trips!bookings_trip_id_fkey(*)
+        `)
+        .eq('driver_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBookings(data || []);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    }
+  };
+
+  // Create new trip
+  const handleCreateTrip = async () => {
+    if (!user) return;
+
+    try {
+      // Get user's vehicle (assuming they have one)
+      const { data: userVehicles } = await supabase
+        .from('vehicles')
+        .select('id')
+        .eq('driver_id', user.id)
+        .eq('is_active', true)
+        .limit(1);
+
+      const vehicleId = userVehicles?.[0]?.id;
+
+      const { data, error } = await supabase
+        .from('trips')
+        .insert([{
+          driver_id: user.id,
+          vehicle_id: vehicleId,
+          from_wilaya_id: parseInt(newTrip.from_wilaya_id),
+          to_wilaya_id: parseInt(newTrip.to_wilaya_id),
+          departure_date: newTrip.departure_date,
+          departure_time: newTrip.departure_time,
+          price_per_seat: parseFloat(newTrip.price_per_seat),
+          total_seats: parseInt(newTrip.total_seats),
+          available_seats: parseInt(newTrip.total_seats),
+          description: newTrip.description,
+          is_active: true
+        }])
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Create notification for admins about new trip
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (adminProfiles && data) {
+        const notifications = adminProfiles.map(admin => ({
+          user_id: admin.id,
+          type: 'trip' as const,
+          title: 'رحلة جديدة',
+          message: `رحلة جديدة من ولاية ${newTrip.from_wilaya_id} إلى ولاية ${newTrip.to_wilaya_id} بسعر ${newTrip.price_per_seat} دج`,
+          related_id: data.id,
+          is_read: false
+        }));
+
+        await supabase
+          .from('notifications')
+          .insert(notifications);
+      }
+
+      // Reset form and refresh data
+      setNewTrip({
+        from_wilaya_id: "",
+        to_wilaya_id: "",
+        departure_date: "",
+        departure_time: "",
+        price_per_seat: "",
+        total_seats: "4",
+        description: ""
+      });
+      setShowAddTrip(false);
+      await fetchTrips();
+
+      toast({
+        title: "تم إنشاء الرحلة",
+        description: "تم إنشاء رحلة جديدة بنجاح",
+      });
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء إنشاء الرحلة",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      if (user) {
+        await Promise.all([
+          fetchVehicles(),
+          fetchTrips(),
+          fetchBookings()
+        ]);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">جاري تحميل لوحة السائق...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const getStatusBadge = (status: string, type: "trip" | "booking" | "vehicle" = "booking") => {
     if (type === "trip") {
@@ -150,14 +270,14 @@ const DriverDashboard = () => {
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 border-2 border-white/20">
                 <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback className="bg-white/20 text-white">يم</AvatarFallback>
+                <AvatarFallback className="bg-white/20 text-white">س</AvatarFallback>
               </Avatar>
               <div>
                 <h1 className="text-2xl font-bold">
-                  {currentLang === "ar" ? "مرحباً، يوسف محمد" : "Welcome, Youssef Mohamed"}
+                  {currentLang === "ar" ? "مرحباً، سائق" : "Welcome, Driver"}
                 </h1>
                 <p className="text-white/90">
-                  {currentLang === "ar" ? "سائق معتمد منذ 2022" : "Verified driver since 2022"}
+                  {currentLang === "ar" ? "إدارة رحلاتك وحجوزاتك" : "Manage your trips and bookings"}
                 </p>
               </div>
             </div>
@@ -178,9 +298,11 @@ const DriverDashboard = () => {
           <Card>
             <CardContent className="p-4 text-center">
               <TrendingUp className="h-8 w-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold">24,500 DA</div>
+              <div className="text-2xl font-bold">
+                {bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0).toLocaleString()} دج
+              </div>
               <div className="text-sm text-muted-foreground">
-                {currentLang === "ar" ? "هذا الشهر" : "This month"}
+                {currentLang === "ar" ? "إجمالي الأرباح" : "Total earnings"}
               </div>
             </CardContent>
           </Card>
@@ -188,9 +310,9 @@ const DriverDashboard = () => {
           <Card>
             <CardContent className="p-4 text-center">
               <Users className="h-8 w-8 text-accent mx-auto mb-2" />
-              <div className="text-2xl font-bold">156</div>
+              <div className="text-2xl font-bold">{bookings.length}</div>
               <div className="text-sm text-muted-foreground">
-                {currentLang === "ar" ? "إجمالي الركاب" : "Total passengers"}
+                {currentLang === "ar" ? "إجمالي الحجوزات" : "Total bookings"}
               </div>
             </CardContent>
           </Card>
@@ -198,9 +320,9 @@ const DriverDashboard = () => {
           <Card>
             <CardContent className="p-4 text-center">
               <Route className="h-8 w-8 text-secondary mx-auto mb-2" />
-              <div className="text-2xl font-bold">42</div>
+              <div className="text-2xl font-bold">{trips.length}</div>
               <div className="text-sm text-muted-foreground">
-                {currentLang === "ar" ? "الرحلات المكتملة" : "Completed trips"}
+                {currentLang === "ar" ? "الرحلات المنشورة" : "Published trips"}
               </div>
             </CardContent>
           </Card>
@@ -242,11 +364,132 @@ const DriverDashboard = () => {
               <h2 className="text-xl font-semibold">
                 {currentLang === "ar" ? "رحلاتي" : "My Trips"}
               </h2>
-              <Button>
+              <Button onClick={() => setShowAddTrip(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 {currentLang === "ar" ? "إضافة رحلة" : "Add Trip"}
               </Button>
             </div>
+
+            {/* Add Trip Form */}
+            {showAddTrip && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>إضافة رحلة جديدة</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>من (الولاية)</Label>
+                      <Select value={newTrip.from_wilaya_id} onValueChange={(value) => 
+                        setNewTrip(prev => ({ ...prev, from_wilaya_id: value }))
+                      }>
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر الولاية" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {wilayas.map((wilaya) => (
+                            <SelectItem key={wilaya.code} value={wilaya.code}>
+                              {wilaya.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>إلى (الولاية)</Label>
+                      <Select value={newTrip.to_wilaya_id} onValueChange={(value) => 
+                        setNewTrip(prev => ({ ...prev, to_wilaya_id: value }))
+                      }>
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر الولاية" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {wilayas.map((wilaya) => (
+                            <SelectItem key={wilaya.code} value={wilaya.code}>
+                              {wilaya.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>تاريخ المغادرة</Label>
+                      <Input
+                        type="date"
+                        value={newTrip.departure_date}
+                        onChange={(e) => setNewTrip(prev => ({ ...prev, departure_date: e.target.value }))}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>وقت المغادرة</Label>
+                      <Input
+                        type="time"
+                        value={newTrip.departure_time}
+                        onChange={(e) => setNewTrip(prev => ({ ...prev, departure_time: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>سعر المقعد (دج)</Label>
+                      <Input
+                        type="number"
+                        value={newTrip.price_per_seat}
+                        onChange={(e) => setNewTrip(prev => ({ ...prev, price_per_seat: e.target.value }))}
+                        placeholder="1500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>عدد المقاعد</Label>
+                      <Select value={newTrip.total_seats} onValueChange={(value) => 
+                        setNewTrip(prev => ({ ...prev, total_seats: value }))
+                      }>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 مقعد</SelectItem>
+                          <SelectItem value="2">2 مقعد</SelectItem>
+                          <SelectItem value="3">3 مقعد</SelectItem>
+                          <SelectItem value="4">4 مقعد</SelectItem>
+                          <SelectItem value="5">5 مقعد</SelectItem>
+                          <SelectItem value="6">6 مقعد</SelectItem>
+                          <SelectItem value="7">7 مقعد</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>وصف الرحلة (اختياري)</Label>
+                    <Textarea
+                      value={newTrip.description}
+                      onChange={(e) => setNewTrip(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="معلومات إضافية عن الرحلة..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={handleCreateTrip}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      إنشاء الرحلة
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowAddTrip(false)}>
+                      إلغاء
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid gap-4">
               {trips.map((trip) => (
@@ -255,20 +498,22 @@ const DriverDashboard = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={getStatusBadge(trip.status, "trip").variant}>{getStatusBadge(trip.status, "trip").label}</Badge>
-                          <span className="text-sm text-muted-foreground">#{trip.id}</span>
+                          <Badge variant={getStatusBadge(trip.is_active ? 'active' : 'inactive', "trip").variant}>
+                            {trip.is_active ? 'نشط' : 'غير نشط'}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">#{trip.id.slice(0, 8)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-lg font-medium mb-2">
                           <MapPin className="h-4 w-4 text-primary" />
-                          <span>{trip.from}</span>
+                          <span>ولاية {trip.from_wilaya_id}</span>
                           <span className="text-muted-foreground">←</span>
-                          <span>{trip.to}</span>
+                          <span>ولاية {trip.to_wilaya_id}</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-primary">{trip.price}</div>
+                        <div className="text-lg font-bold text-primary">{trip.price_per_seat} دج</div>
                         <div className="text-sm text-muted-foreground">
-                          {trip.bookedSeats}/{trip.totalSeats} {currentLang === "ar" ? "مقاعد" : "seats"}
+                          {trip.available_seats}/{trip.total_seats} {currentLang === "ar" ? "مقاعد" : "seats"}
                         </div>
                       </div>
                     </div>
@@ -276,19 +521,19 @@ const DriverDashboard = () => {
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{trip.date}</span>
+                        <span>{trip.departure_date}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{trip.time}</span>
+                        <span>{trip.departure_time}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Car className="h-4 w-4 text-muted-foreground" />
-                        <span>{trip.vehicle}</span>
+                        <span>{trip.vehicle?.make} {trip.vehicle?.model}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>{trip.bookedSeats} {currentLang === "ar" ? "راكب" : "passengers"}</span>
+                        <span>{trip.total_seats - trip.available_seats} {currentLang === "ar" ? "راكب" : "passengers"}</span>
                       </div>
                     </div>
 
@@ -330,17 +575,18 @@ const DriverDashboard = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={getStatusBadge(vehicle.status, "vehicle").variant}>{getStatusBadge(vehicle.status, "vehicle").label}</Badge>
+                          <Badge variant={getStatusBadge(vehicle.is_active ? 'active' : 'inactive', "vehicle").variant}>
+                            {vehicle.is_active ? 'نشط' : 'غير نشط'}
+                          </Badge>
                         </div>
                         <h3 className="font-semibold text-lg">
-                          {vehicle.brand} {vehicle.model}
+                          {vehicle.make} {vehicle.model}
                         </h3>
                         <p className="text-muted-foreground mb-2">
-                          {vehicle.year} • {vehicle.color} • {vehicle.plate}
+                          {vehicle.year} • {vehicle.color} • {vehicle.license_plate}
                         </p>
                         <div className="flex items-center gap-4 text-sm">
                           <span>{vehicle.seats} {currentLang === "ar" ? "مقاعد" : "seats"}</span>
-                          <span>{vehicle.category}</span>
                         </div>
                       </div>
                     </div>
@@ -374,24 +620,31 @@ const DriverDashboard = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={getStatusBadge(booking.status).variant}>{getStatusBadge(booking.status).label}</Badge>
-                          <span className="text-sm text-muted-foreground">#{booking.id}</span>
+                          <Badge variant={getStatusBadge(booking.status).variant}>
+                            {getStatusBadge(booking.status).label}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">#{booking.id.slice(0, 8)}</span>
                         </div>
-                        <h3 className="font-semibold text-lg">{booking.passenger}</h3>
+                        <h3 className="font-semibold text-lg">{booking.passenger?.full_name}</h3>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Phone className="h-4 w-4" />
-                          <span>{booking.phone}</span>
+                          <span>{booking.passenger?.phone}</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-primary">{booking.amount}</div>
+                        <div className="text-lg font-bold text-primary">{booking.total_amount} دج</div>
                         <div className="text-sm text-muted-foreground">
-                          {booking.seats} {currentLang === "ar" ? "مقاعد" : "seats"}
+                          {booking.seats_booked} {currentLang === "ar" ? "مقاعد" : "seats"}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {booking.payment}
+                          {booking.payment_method === 'cod' ? 'نقداً' : 'بريدي موب'}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm mb-4">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{booking.pickup_location} → {booking.destination_location}</span>
                     </div>
 
                     <div className="flex gap-2">
@@ -407,12 +660,10 @@ const DriverDashboard = () => {
                           </Button>
                         </>
                       )}
-                      {booking.status === "confirmed" && booking.payment === "نقدي" && (
-                        <Button size="sm" className="w-full">
-                          <DollarSign className="h-4 w-4 mr-2" />
-                          {currentLang === "ar" ? "تأكيد الدفع" : "Mark as Paid"}
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline">
+                        <Eye className="h-4 w-4 mr-2" />
+                        تفاصيل
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -469,13 +720,13 @@ const DriverDashboard = () => {
                   {trips.slice(0, 3).map((trip) => (
                     <div key={trip.id} className="flex items-center justify-between py-2 border-b last:border-0">
                       <div>
-                        <p className="font-medium">{trip.from} → {trip.to}</p>
-                        <p className="text-sm text-muted-foreground">{trip.date} - {trip.time}</p>
+                        <p className="font-medium">ولاية {trip.from_wilaya_id} → ولاية {trip.to_wilaya_id}</p>
+                        <p className="text-sm text-muted-foreground">{trip.departure_date} - {trip.departure_time}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{trip.price}</p>
+                        <p className="font-medium">{trip.price_per_seat} دج</p>
                         <p className="text-xs text-muted-foreground">
-                          {trip.bookedSeats}/{trip.totalSeats} {currentLang === "ar" ? "مقاعد" : "seats"}
+                          {trip.available_seats}/{trip.total_seats} {currentLang === "ar" ? "مقاعد" : "seats"}
                         </p>
                       </div>
                     </div>
