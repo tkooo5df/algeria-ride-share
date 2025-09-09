@@ -131,6 +131,16 @@ const Header = () => {
                   >
                     {currentLang === "ar" ? "إنشاء حساب" : currentLang === "fr" ? "S'inscrire" : "Sign Up"}
                   </Button>
+                  <Link to="/admin">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-primary/20 text-primary hover:bg-primary hover:text-white"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      {currentLang === "ar" ? "لوحة الإدارة" : currentLang === "fr" ? "Admin" : "Admin"}
+                    </Button>
+                  </Link>
                 </>
               )}
             </div>
@@ -218,6 +228,12 @@ const Header = () => {
                     >
                       {currentLang === "ar" ? "إنشاء حساب" : currentLang === "fr" ? "S'inscrire" : "Sign Up"}
                     </Button>
+                    <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <Settings className="h-4 w-4 mr-2" />
+                        {currentLang === "ar" ? "لوحة الإدارة" : currentLang === "fr" ? "Admin" : "Admin"}
+                      </Button>
+                    </Link>
                   </>
                 )}
               </div>
