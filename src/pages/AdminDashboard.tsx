@@ -226,8 +226,8 @@ const AdminDashboard = () => {
         .from('bookings')
         .select(`
           *,
-          passenger:profiles!bookings_passenger_id_fkey(full_name, phone, email),
-          driver:profiles!bookings_driver_id_fkey(full_name, phone)
+          passenger:profiles!rider_id(full_name, phone, email),
+          driver:profiles!driver_id(full_name, phone)
         `)
         .order('created_at', { ascending: false });
 
