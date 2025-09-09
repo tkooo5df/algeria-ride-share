@@ -91,6 +91,11 @@ const DriverDemo = () => {
   const [loading, setLoading] = useState(true);
   const [showAddTrip, setShowAddTrip] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [showTripBookings, setShowTripBookings] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string>("");
+  const [tripBookings, setTripBookings] = useState<Booking[]>([]);
+  const [showEditTrip, setShowEditTrip] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   const [newTrip, setNewTrip] = useState({
     from_wilaya_id: "",
