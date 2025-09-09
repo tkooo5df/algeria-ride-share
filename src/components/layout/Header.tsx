@@ -114,17 +114,19 @@ const Header = () => {
                       {currentLang === "ar" ? "تسجيل الدخول" : currentLang === "fr" ? "Se connecter" : "Sign In"}
                     </Button>
                   </Link>
-                 {profile?.role === 'admin' && (
-                   <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
-                     <Button variant="ghost" size="sm" className="w-full justify-start">
-                       <Settings className="h-4 w-4 mr-2" />
-                       Admin Panel
-                     </Button>
-                   </Link>
-                    <Link to="/driver-demo" className="text-foreground hover:text-primary transition-colors">
-                      {currentLang === "ar" ? "تجربة السائق" : currentLang === "fr" ? "Demo Conducteur" : "Driver Demo"}
-                    </Link>
-                 )}
+                  {profile?.role === 'admin' && (
+                    <>
+                      <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Admin Panel
+                        </Button>
+                      </Link>
+                      <Link to="/driver-demo" className="text-foreground hover:text-primary transition-colors">
+                        {currentLang === "ar" ? "تجربة السائق" : currentLang === "fr" ? "Demo Conducteur" : "Driver Demo"}
+                      </Link>
+                    </>
+                  )}
                   <Button 
                     variant="hero" 
                     size="sm"
@@ -185,18 +187,20 @@ const Header = () => {
               >
                 {currentLang === "ar" ? "اتصل بنا" : currentLang === "fr" ? "Contact" : "Contact"}
               </Link>
-             {profile?.role === 'admin' && (
-               <Link to="/admin" className="text-foreground hover:text-primary transition-colors">
-                 {currentLang === "ar" ? "لوحة الإدارة" : currentLang === "fr" ? "Admin" : "Admin"}
-               </Link>
-               <Link 
-                 to="/driver-demo" 
-                 className="text-foreground hover:text-primary transition-colors py-2"
-                 onClick={() => setIsMenuOpen(false)}
-               >
-                 {currentLang === "ar" ? "تجربة السائق" : currentLang === "fr" ? "Demo Conducteur" : "Driver Demo"}
-               </Link>
-             )}
+              {profile?.role === 'admin' && (
+                <>
+                  <Link to="/admin" className="text-foreground hover:text-primary transition-colors">
+                    {currentLang === "ar" ? "لوحة الإدارة" : currentLang === "fr" ? "Admin" : "Admin"}
+                  </Link>
+                  <Link 
+                    to="/driver-demo" 
+                    className="text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {currentLang === "ar" ? "تجربة السائق" : currentLang === "fr" ? "Demo Conducteur" : "Driver Demo"}
+                  </Link>
+                </>
+              )}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 {session ? (
                   <>
