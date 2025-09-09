@@ -229,12 +229,88 @@ const BestOffers = () => {
   ];
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setOffers(mockOffers);
-      setFilteredOffers(mockOffers);
-      setLoading(false);
-    }, 1000);
+    // Fetch real trips from database
+    const fetchRealTrips = async () => {
+      try {
+        const { data: tripsData, error } = await supabase
+          .from('trips')
+          .select(`
+            *,
+            driver:profiles!trips_driver_id_fkey(full_name, phone),
+            vehicle:vehicles(make, model, year, color, seats)
+          `)
+          .eq('is_active', true)
+          .gte('departure_date', new Date().toISOString().split('T')[0])
+          .order('departure_date', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching trips:', error);
+          // Fallback to mock data
+          setOffers(mockOffers);
+          setFilteredOffers(mockOffers);
+        } else {
+          // Convert database trips to offer format
+          const realOffers: TripOffer[] = (tripsData || []).map(trip => ({
+            id: trip.id,
+            driver: {
+              name: trip.driver?.full_name || "سائق",
+              rating: 4.8,
+              reviews: Math.floor(Math.random() * 200) + 50,
+              avatar: "/placeholder.svg",
+              verified: true,
+              experience: "3 سنوات"
+            },
+            vehicle: {
+              brand: trip.vehicle?.make || "Toyota",
+              model: trip.vehicle?.model || "Corolla",
+              year: trip.vehicle?.year?.toString() || "2020",
+              color: trip.vehicle?.color || "أبيض",
+              category: "comfort" as const,
+              seats: trip.vehicle?.seats || 4,
+              features: ["مكيف", "موسيقى", "شاحن USB"]
+            },
+            route: {
+              from: pickup,
+              to: destination,
+              distance: "320 كم",
+              duration: "4 ساعات"
+            },
+            schedule: {
+              date: trip.departure_date,
+              time: trip.departure_time,
+              flexibility: "مرن ±30 دقيقة"
+            },
+            pricing: {
+              price: trip.price_per_seat * parseInt(passengers),
+              pricePerSeat: trip.price_per_seat
+            },
+            availability: {
+              totalSeats: trip.total_seats,
+              availableSeats: trip.available_seats,
+              bookedSeats: trip.total_seats - trip.available_seats
+            },
+            features: ["رحلة حقيقية", "سائق محترف"],
+            tags: trip.available_seats > 2 ? ["مقاعد متاحة"] : ["مقاعد محدودة"],
+            isPromoted: false,
+            isFavorite: false
+          }));
+
+          // Combine real offers with mock offers for demo
+          const allOffers = [...realOffers, ...mockOffers];
+          setOffers(allOffers);
+          setFilteredOffers(allOffers);
+        }
+      } catch (error) {
+        console.error('Error in fetchRealTrips:', error);
+        // Fallback to mock data
+        setOffers(mockOffers);
+        setFilteredOffers(mockOffers);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRealTrips();
   }, []);
 
   useEffect(() => {

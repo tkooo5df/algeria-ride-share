@@ -140,7 +140,7 @@ const BookingForm = () => {
         {
           pickup_location: pickup,
           destination_location: destination,
-          passenger_id: user.id,
+          rider_id: user.id,
           // driver_id: driverId, // Commented out to avoid foreign key constraint error
           total_amount: parseFloat(price),
           status: "pending",
