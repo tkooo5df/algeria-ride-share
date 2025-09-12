@@ -53,6 +53,18 @@ const Header = () => {
             <Link to="/contact" className="text-foreground hover:text-primary transition-colors">
               {currentLang === "ar" ? "اتصل بنا" : currentLang === "fr" ? "Contact" : "Contact"}
             </Link>
+            <Link to="/database-settings" className="text-foreground hover:text-primary transition-colors">
+              {currentLang === "ar" ? "إعدادات قاعدة البيانات" : currentLang === "fr" ? "Paramètres DB" : "DB Settings"}
+            </Link>
+            <Link to="/demo-data" className="text-foreground hover:text-primary transition-colors">
+              {currentLang === "ar" ? "البيانات التجريبية" : currentLang === "fr" ? "Données Demo" : "Demo Data"}
+            </Link>
+            <Link to="/notification-demo" className="text-foreground hover:text-primary transition-colors">
+              {currentLang === "ar" ? "عرض الإشعارات" : currentLang === "fr" ? "Demo Notifications" : "Notification Demo"}
+            </Link>
+            <Link to="/booking-flow-demo" className="text-foreground hover:text-primary transition-colors">
+              {currentLang === "ar" ? "تدفق الحجز" : currentLang === "fr" ? "Flux Réservation" : "Booking Flow"}
+            </Link>
           </nav>
 
           {/* Right side actions */}
@@ -90,14 +102,9 @@ const Header = () => {
                     <User className="h-5 w-5" />
                   </Button>
                   <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[160px]">
-                    <Link to={profile?.role === 'driver' ? "/driver/dashboard" : "/passenger/dashboard"} className="block px-4 py-2 text-sm text-foreground hover:bg-accent">
+                    <Link to="/dashboard" className="block px-4 py-2 text-sm text-foreground hover:bg-accent">
                       Dashboard
                     </Link>
-                   {profile?.role === 'admin' && (
-                     <Link to="/admin" className="block px-4 py-2 text-sm text-foreground hover:bg-accent">
-                       Admin Panel
-                     </Link>
-                   )}
                     <button
                       onClick={handleSignOut}
                       className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"

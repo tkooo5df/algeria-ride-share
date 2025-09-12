@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import PassengerDashboard from "./pages/PassengerDashboard";
@@ -18,8 +18,11 @@ import BookingConfirmation from "./pages/BookingConfirmation";
 import BestOffers from "./pages/BestOffers";
 import BookingForm from "./components/booking/BookingForm";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminDashboard from "./pages/AdminDashboard";
-import DriverDemo from "./pages/DriverDemo";
+import UserDashboard from "./pages/UserDashboard";
+import DatabaseSettings from "./pages/DatabaseSettings";
+import DemoData from "./pages/DemoData";
+import NotificationDemo from "./pages/NotificationDemo";
+import BookingFlowDemo from "./pages/BookingFlowDemo";
 
 const queryClient = new QueryClient();
 
@@ -37,12 +40,9 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/passenger/dashboard" element={<PassengerDashboard />} />
-            <Route path="/driver/dashboard" element={<DriverDashboard />} />
+            <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/driver" element={<DriverOnboarding />} />
-            <Route path="/admin" element={<AdminDashboard />} />
           </Route>
-          <Route path="/driver-demo" element={<DriverDemo />} />
           <Route path="/about" element={<About />} />
           <Route path="/auth/signup" element={<SignUp />} />
           <Route path="/auth/signin" element={<SignIn />} />
@@ -52,6 +52,11 @@ const App = () => (
           <Route path="/best-offers" element={<BestOffers />} />
           <Route path="/booking-confirmation" element={<BookingConfirmation />} />
           <Route path="/booking-form" element={<BookingForm />} />
+          <Route path="/database-settings" element={<DatabaseSettings />} />
+          <Route path="/demo-data" element={<DemoData />} />
+          <Route path="/notification-demo" element={<NotificationDemo />} />
+          <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/booking-flow-demo" element={<BookingFlowDemo />} />
           <Route path="/contact" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

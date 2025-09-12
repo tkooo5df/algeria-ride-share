@@ -12,7 +12,7 @@ const SearchForm = () => {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    navigate(`/best-offers?pickup=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(destination)}`);
+    navigate(`/ride-search?pickup=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(destination)}`);
   };
   return (
     <section className="py-12 bg-background">

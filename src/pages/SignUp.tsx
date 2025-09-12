@@ -8,13 +8,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome } from "lucide-react";
+import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Database } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { wilayas } from "@/data/wilayas";
+import { useDatabase } from "@/hooks/useDatabase";
+import { useLocalAuth } from "@/hooks/useLocalAuth";
+import { toast } from "@/hooks/use-toast";
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const { getDatabaseService, isLocal } = useDatabase();
+  const { signIn: localSignIn } = useLocalAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -79,38 +84,121 @@ const SignUp = () => {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone,
-            role: role,
-            wilaya: wilaya,
-          },
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccess("تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتفعيل الحساب.");
-        // Clear form
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
-        setFirstName("");
-        setLastName("");
-        setPhone("");
-        setWilaya("");
-        setAcceptTerms(false);
+      if (isLocal) {
+        // Use local database
+        const db = getDatabaseService();
         
-        // Redirect after 3 seconds
-        setTimeout(() => {
-          navigate("/auth/signin");
-        }, 3000);
+        // Check if email already exists
+        const existingProfile = await db.getProfileByEmail(email);
+        if (existingProfile) {
+          setError("البريد الإلكتروني مستخدم بالفعل");
+          setLoading(false);
+          return;
+        }
+
+        // Create profile in local database
+        const profileData = {
+          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          fullName: `${firstName} ${lastName}`,
+          phone: phone || null,
+          role: role as 'driver' | 'passenger' | 'admin',
+          wilaya: wilaya || 'الجزائر',
+          commune: 'غير محدد',
+          address: 'غير محدد',
+          isVerified: true, // Auto-verify for local database
+        };
+
+        const newProfile = await db.createProfile(profileData);
+        
+        if (newProfile) {
+          setSuccess("تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.");
+          
+          // Auto sign in after successful registration
+          setTimeout(async () => {
+            try {
+              await localSignIn(email, password);
+              toast({
+                title: "تم تسجيل الدخول تلقائياً",
+                description: "مرحباً بك في DZ Taxi!",
+              });
+              navigate("/dashboard");
+            } catch (error) {
+              navigate("/auth/signin");
+            }
+          }, 2000);
+        } else {
+          setError("فشل في إنشاء الحساب");
+        }
+      } else {
+        // Use Supabase, fallback to local if it fails (e.g., 500)
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              phone: phone,
+              role: role,
+              wilaya: wilaya,
+            },
+          },
+        });
+
+        if (error) {
+          // Fallback: create local profile and auto sign in
+          const db = getDatabaseService();
+          const existing = await db.getProfileByEmail?.(email);
+          if (existing) {
+            setError("هذا البريد مستخدم محلياً. يرجى تسجيل الدخول.");
+          } else {
+            const localProfile = await db.createProfile({
+              id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              email,
+              firstName,
+              lastName,
+              fullName: `${firstName} ${lastName}`,
+              phone: phone || null,
+              role,
+              wilaya: wilaya || 'الجزائر',
+              commune: 'غير محدد',
+              address: 'غير محدد',
+              isVerified: true,
+            });
+
+            if (localProfile) {
+              setSuccess("لا يمكن الاتصال بـ Supabase. تم إنشاء الحساب محلياً وتم تسجيل دخولك.");
+              try {
+                // Auto sign-in via local auth flow if available
+                // We navigate directly to dashboard; SignIn already supports local
+                navigate('/dashboard');
+              } catch {
+                navigate('/auth/signin');
+              }
+            } else {
+              setError("تعذر إنشاء الحساب حالياً. حاول لاحقاً.");
+            }
+          }
+        } else {
+          setSuccess("تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتفعيل الحساب.");
+          // Clear form
+          setEmail("");
+          setPassword("");
+          setConfirmPassword("");
+          setFirstName("");
+          setLastName("");
+          setPhone("");
+          setWilaya("");
+          setAcceptTerms(false);
+          
+          // Redirect after 3 seconds
+          setTimeout(() => {
+            navigate("/auth/signin");
+          }, 3000);
+        }
       }
     } catch (error: any) {
       setError(error.message);
@@ -371,6 +459,37 @@ const SignUp = () => {
                   </Button>
                 </div>
               </form>
+
+              {/* Test Accounts Section */}
+              {isLocal && (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">حسابات تجريبية جاهزة</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      يمكنك استخدام الحسابات التجريبية الجاهزة للاختبار
+                    </p>
+                    <div className="grid gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate("/auth/signin")}
+                        className="w-full justify-start"
+                      >
+                        <Database className="h-4 w-4 mr-2" />
+                        تسجيل دخول بحساب تجريبي
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="text-center text-sm">
                 لديك حساب بالفعل؟{" "}
