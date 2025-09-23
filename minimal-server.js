@@ -25,6 +25,16 @@ Object.keys(process.env)
 const isRailway = !!process.env.RAILWAY_PROJECT_ID || !!process.env.RAILWAY_ENVIRONMENT_NAME;
 console.log('\n🚂 Railway environment detected:', isRailway);
 
+// Check for dist directory
+const distPath = path.join(process.cwd(), 'dist');
+console.log('\n📁 Dist directory check:');
+console.log('  Path:', distPath);
+console.log('  Exists:', fs.existsSync(distPath));
+
+if (fs.existsSync(distPath)) {
+  console.log('  Contents:', fs.readdirSync(distPath));
+}
+
 // Create a simple HTTP server
 const server = http.createServer((req, res) => {
   const timestamp = new Date().toISOString();
@@ -53,26 +63,61 @@ const server = http.createServer((req, res) => {
     return;
   }
   
-  // Root endpoint
+  // Root endpoint - serve index.html if it exists
   if (req.url === '/') {
     console.log('🏠 Root endpoint requested');
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Diagnostic Server</title>
-        <meta charset="utf-8">
-      </head>
-      <body>
-        <h1>✅ Minimal Diagnostic Server Running</h1>
-        <p>Server is working correctly on port ${port}</p>
-        <p>Timestamp: ${new Date().toISOString()}</p>
-        <p><a href="/health">Health Check</a> | <a href="/test">Test Endpoint</a></p>
-      </body>
-      </html>
-    `);
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      console.log('📄 Serving index.html');
+      const content = fs.readFileSync(indexPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(content);
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Diagnostic Server</title>
+          <meta charset="utf-8">
+        </head>
+        <body>
+          <h1>✅ Minimal Diagnostic Server Running</h1>
+          <p>Server is working correctly on port ${port}</p>
+          <p>Timestamp: ${new Date().toISOString()}</p>
+          <p><a href="/health">Health Check</a> | <a href="/test">Test Endpoint</a></p>
+          <p>Dist directory exists: ${fs.existsSync(distPath)}</p>
+        </body>
+        </html>
+      `);
+    }
     return;
+  }
+  
+  // Serve static files from dist directory
+  if (fs.existsSync(distPath)) {
+    const filePath = path.join(distPath, req.url);
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      console.log('📄 Serving static file:', req.url);
+      const content = fs.readFileSync(filePath);
+      // Set content type based on file extension
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = {
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml'
+      }[ext] || 'application/octet-stream';
+      
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content);
+      return;
+    }
   }
   
   // 404 for everything else
