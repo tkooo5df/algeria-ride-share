@@ -5,8 +5,8 @@
 .env.local
 .env.production
 
-# Build output
-dist/
+# Build output (keep dist for deployment)
+# dist/
 build/
 
 # Dependencies
