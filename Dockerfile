@@ -19,8 +19,8 @@ RUN npm run build
 # Remove devDependencies to reduce image size
 RUN npm prune --production
 
-# Expose port (Railway sets this dynamically)
+# Expose port (Railway will set PORT env var)
 EXPOSE 3000
 
-# Start the server
+# Start the server directly
 CMD ["node", "server.js"]
