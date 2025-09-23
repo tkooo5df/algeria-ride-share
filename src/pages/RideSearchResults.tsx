@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useSearchParams, Link } from "react-router-dom";
@@ -8,7 +11,7 @@ import { useState, useEffect } from "react";
 import { useDatabase } from "@/hooks/useDatabase";
 import { useLocalAuth } from "@/hooks/useLocalAuth";
 import { BrowserDatabaseService } from "@/integrations/database/browserServices";
-import { MapPin, Calendar, Clock, DollarSign, Users, Car, User } from "lucide-react";
+import { MapPin, Calendar, Clock, DollarSign, Users, Car, User, Filter, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { wilayas } from "@/data/wilayas";
 
@@ -17,23 +20,21 @@ const RideSearchResults = () => {
   const pickup = searchParams.get("pickup");
   const destination = searchParams.get("destination");
   const searchDate = searchParams.get("date");
-  const searchTime = searchParams.get("time");
-  const passengersParam = searchParams.get("passengers");
-  const passengers = passengersParam ? parseInt(passengersParam, 10) : undefined;
   const [trips, setTrips] = useState([]);
+  const [filteredTrips, setFilteredTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isLocal } = useDatabase();
   const { user } = useLocalAuth();
 
-  // Helper: get wilaya ID from name or code string (e.g., "09")
-  const getWilayaId = (value: string) => {
-    if (!value) return null;
-    // If value looks like a 2-digit code, match by code
-    const codeLike = /^\d{2}$/.test(value) ? value : null;
-    const wilaya = codeLike
-      ? wilayas.find(w => w.code === value)
-      : wilayas.find(w => w.name === value);
-    return wilaya ? parseInt(wilaya.code, 10) : null;
+  // Filter states
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const [timeRange, setTimeRange] = useState<[string, string]>(["00:00", "23:59"]);
+  const [selectedVehicleType, setSelectedVehicleType] = useState("");
+
+  // Helper function to get wilaya ID by name
+  const getWilayaIdByName = (wilayaName: string) => {
+    const wilaya = wilayas.find(w => w.name === wilayaName);
+    return wilaya ? parseInt(wilaya.code) : null;
   };
 
   // Helper function to check if trip matches search criteria
@@ -41,6 +42,37 @@ const RideSearchResults = () => {
     if (!fromWilayaId || !toWilayaId) return true; // Show all if no search criteria
     
     return trip.fromWilayaId === fromWilayaId && trip.toWilayaId === toWilayaId;
+  };
+
+  // Apply filters to trips
+  const applyFilters = () => {
+    let result = [...trips];
+    
+    // Price filter
+    result = result.filter(trip => 
+      trip.pricePerSeat >= priceRange[0] && trip.pricePerSeat <= priceRange[1]
+    );
+    
+    // Time filter
+    result = result.filter(trip => {
+      const tripTime = trip.departureTime;
+      return tripTime >= timeRange[0] && tripTime <= timeRange[1];
+    });
+    
+    // Vehicle type filter (if implemented)
+    if (selectedVehicleType) {
+      // This would require vehicle type data in the trip
+      // result = result.filter(trip => trip.vehicle?.type === selectedVehicleType);
+    }
+    
+    setFilteredTrips(result);
+  };
+
+  // Reset filters
+  const resetFilters = () => {
+    setPriceRange([0, 10000]);
+    setTimeRange(["00:00", "23:59"]);
+    setSelectedVehicleType("");
   };
 
   // Load trips from database
@@ -51,14 +83,14 @@ const RideSearchResults = () => {
         const allTrips = await BrowserDatabaseService.getTrips();
         
         // Filter trips based on search criteria if provided
-        let filteredTrips = allTrips;
-        // Exclude demo/seeded trips explicitly
-        filteredTrips = filteredTrips.filter((t: any) => !t.isDemo);
+        // Exclude demo trips
+        let filteredTrips = allTrips.filter((t: any) => !t.isDemo);
         if (pickup && destination) {
-          const fromWilayaId = getWilayaId(pickup);
-          const toWilayaId = getWilayaId(destination);
-          // Filter trips that match the search criteria (continue chaining on filteredTrips)
-          filteredTrips = filteredTrips.filter(trip =>
+          const fromWilayaId = getWilayaIdByName(pickup);
+          const toWilayaId = getWilayaIdByName(destination);
+          
+          // Filter trips that match the search criteria
+          filteredTrips = allTrips.filter(trip => 
             matchesSearchCriteria(trip, fromWilayaId, toWilayaId)
           );
         }
@@ -69,14 +101,11 @@ const RideSearchResults = () => {
           trip.departureDate >= today && trip.status === 'scheduled'
         );
         
-        // Filter by search date if provided
+        // Filter by search date if provided: include ONLY trips on the exact date
         if (searchDate) {
-          filteredTrips = filteredTrips.filter(trip => trip.departureDate === searchDate);
-        }
-
-        // Filter by passengers if provided
-        if (typeof passengers === 'number' && !isNaN(passengers)) {
-          filteredTrips = filteredTrips.filter(trip => (trip.availableSeats ?? 0) >= passengers);
+          filteredTrips = filteredTrips.filter(trip => 
+            trip.departureDate === searchDate
+          );
         }
         
         // Sort trips by departure date and time
@@ -102,6 +131,7 @@ const RideSearchResults = () => {
         );
         
         setTrips(tripsWithDetails);
+        setFilteredTrips(tripsWithDetails);
       } catch (error) {
         console.error('Error loading trips:', error);
         toast({
@@ -115,7 +145,14 @@ const RideSearchResults = () => {
     };
 
     loadTrips();
-  }, [pickup, destination, searchDate, searchTime, passengersParam]);
+  }, [pickup, destination]);
+
+  // Apply filters when filter values change
+  useEffect(() => {
+    if (trips.length > 0) {
+      applyFilters();
+    }
+  }, [trips, priceRange, timeRange, selectedVehicleType]);
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
@@ -127,23 +164,98 @@ const RideSearchResults = () => {
             <p className="text-muted-foreground">
               من {pickup} إلى {destination}
               {searchDate && ` - ${searchDate}`}
-              <span className="font-semibold"> - {trips.length} رحلة متاحة</span>
+              <span className="font-semibold"> - {filteredTrips.length} رحلة متاحة</span>
             </p>
           )}
           {!pickup && !destination && (
             <p className="text-muted-foreground">
               جميع الرحلات المتاحة
               {searchDate && ` - ${searchDate}`}
-              <span className="font-semibold"> - {trips.length} رحلة</span>
+              <span className="font-semibold"> - {filteredTrips.length} رحلة</span>
             </p>
           )}
         </div>
+
+        {/* Filters Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              تصفية النتائج
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>السعر (دج)</Label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="number" 
+                    placeholder="من" 
+                    value={priceRange[0]} 
+                    onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
+                    className="h-9"
+                  />
+                  <span>-</span>
+                  <Input 
+                    type="number" 
+                    placeholder="إلى" 
+                    value={priceRange[1]} 
+                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 10000])}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>الوقت</Label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="time" 
+                    value={timeRange[0]} 
+                    onChange={(e) => setTimeRange([e.target.value, timeRange[1]])}
+                    className="h-9"
+                  />
+                  <span>-</span>
+                  <Input 
+                    type="time" 
+                    value={timeRange[1]} 
+                    onChange={(e) => setTimeRange([timeRange[0], e.target.value])}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>نوع المركبة</Label>
+                <Select value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="اختر النوع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">الكل</SelectItem>
+                    <SelectItem value="car">سيارة</SelectItem>
+                    <SelectItem value="van"> VAN</SelectItem>
+                    <SelectItem value="bus">حافلة</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-end">
+                <Button variant="outline" onClick={resetFilters} className="h-9">
+                  <X className="h-4 w-4 ml-2" />
+                  إعادة تعيين
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <div className="text-center py-8">
             <p>جاري تحميل الرحلات...</p>
           </div>
-        ) : trips.length === 0 ? (
+        ) : filteredTrips.length === 0 ? (
           <div className="text-center py-8">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-4">
               <h3 className="text-lg font-semibold text-yellow-800 mb-2">
@@ -177,7 +289,7 @@ const RideSearchResults = () => {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {trips.map((trip) => (
+            {filteredTrips.map((trip) => (
               <Card key={trip.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -237,12 +349,12 @@ const RideSearchResults = () => {
                     </div>
                   </div>
                   
-                  {/* Total Price */}
+                  {/* Total Price (equals price per seat unless كمية مقاعد محددة) */}
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">السعر الإجمالي:</span>
                       <span className="font-bold text-lg text-primary">
-                        {trip.pricePerSeat * trip.totalSeats} دج
+                        {trip.pricePerSeat * 1} دج
                       </span>
                     </div>
                   </div>

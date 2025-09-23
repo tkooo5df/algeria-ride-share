@@ -15,6 +15,7 @@ export class DatabaseService {
     wilaya?: string;
     commune?: string;
     address?: string;
+    isVerified?: boolean;
   }) {
     return await prisma.profile.create({
       data: {
@@ -28,7 +29,7 @@ export class DatabaseService {
         wilaya: data.wilaya,
         commune: data.commune,
         address: data.address,
-        isVerified: data.role === 'admin',
+        isVerified: data.isVerified !== undefined ? data.isVerified : data.role === 'admin',
       },
     });
   }
@@ -325,7 +326,7 @@ export class DatabaseService {
   }
 
   static async getWilayaById(id: number) {
-    return wilayas.find(w => w.code === id);
+    return wilayas.find(w => w.code === id.toString());
   }
 
   // Initialize default data

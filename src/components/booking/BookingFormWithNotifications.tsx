@@ -49,7 +49,7 @@ interface Trip {
 
 interface BookingFormWithNotificationsProps {
   trip: Trip;
-  onBookingSuccess?: (bookingId: number) => void;
+  onBookingSuccess?: (bookingId: string | number) => void;
   onCancel?: () => void;
 }
 
@@ -71,6 +71,14 @@ const BookingFormWithNotifications = ({
     pickupTime: trip.departureTime,
   });
 
+  // Convert UI payment method values to database values
+  const convertPaymentMethod = (uiValue: string): 'cod' | 'bpm' => {
+    if (uiValue === 'baridimob') {
+      return 'bpm';
+    }
+    return uiValue as 'cod' | 'bpm';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -91,7 +99,7 @@ const BookingFormWithNotifications = ({
         tripId: trip.id,
         seatsBooked: formData.seatsBooked,
         totalAmount: totalAmount,
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: convertPaymentMethod(formData.paymentMethod),
         notes: formData.notes,
         pickupTime: formData.pickupTime,
         specialRequests: formData.specialRequests,
@@ -108,7 +116,7 @@ const BookingFormWithNotifications = ({
         destinationLocation: formData.destinationLocation,
         seatsBooked: formData.seatsBooked,
         totalAmount: totalAmount,
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: convertPaymentMethod(formData.paymentMethod),
       });
 
       // Update trip available seats

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Database, Server, HardDrive, CheckCircle, AlertCircle } from 'lucide-react';
+import { Database, Server, HardDrive, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useDatabase, DatabaseType } from '@/hooks/useDatabase';
 import { toast } from '@/hooks/use-toast';
 
@@ -43,6 +43,19 @@ const DatabaseSwitch = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Important Note */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-blue-800">ملاحظة مهمة</h4>
+              <p className="text-sm text-blue-700">
+                إذا لم تكن بياناتك تُحفظ بشكل صحيح، تأكد من أنك تستخدم قاعدة البيانات المحلية (SQLite) التي مناسبة للتطوير والاختبار.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Local Database Option */}
         <div className="flex items-center justify-between p-4 border rounded-lg">
           <div className="flex items-center gap-3">
@@ -146,9 +159,54 @@ const DatabaseSwitch = () => {
                 <li>• قاعدة بيانات سحابية متقدمة</li>
                 <li>• ميزات المصادقة المدمجة</li>
                 <li>• دعم الوقت الفعلي</li>
-                <li>• نسخ احتياطية تلقائية</li>
+                <li>• نسخ احتياطائية تلقائية</li>
                 <li>• قابلة للتوسع</li>
               </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Persistence Note */}
+        <div className="mt-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-yellow-800">حل مشكلة حفظ البيانات</h4>
+              <p className="text-sm text-yellow-700">
+                إذا كانت بياناتك (الحسابات، المركبات، الرحلات) لا تُحفظ بشكل صحيح، تأكد من استخدامك لـ "قاعدة البيانات المحلية". 
+                هذه المشكلة قد تحدث إذا كنت تستخدم قاعدة بيانات Supabase دون إعدادها بشكل صحيح.
+              </p>
+              <ul className="text-sm text-yellow-700 mt-2 list-disc list-inside">
+                <li>الحسابات لا تُحفظ: تأكد من استخدام قاعدة البيانات المحلية</li>
+                <li>المركبات لا تُعرض: تحقق من نوع قاعدة البيانات المستخدمة</li>
+                <li>الرحلات لا تُنشئ: تأكد من تفعيل قاعدة البيانات المحلية</li>
+              </ul>
+              <p className="text-sm text-yellow-700 mt-2">
+                انقر على "تفعيل" لقاعدة البيانات المحلية لحل هذه المشكلة.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Troubleshooting Guide */}
+        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-semibold text-blue-800 mb-2">دليل استكشاف الأخطاء وإصلاحها</h4>
+          <div className="text-sm text-blue-700 space-y-2">
+            <div>
+              <p className="font-medium">الخطوة 1: تحقق من نوع قاعدة البيانات</p>
+              <p>تأكد من أن "قاعدة البيانات المحلية" مفعلة. إذا لم تكن مفعلة، انقر على زر "تفعيل".</p>
+            </div>
+            <div>
+              <p className="font-medium">الخطوة 2: أعد تحميل الصفحة</p>
+              <p>بعد تفعيل قاعدة البيانات المحلية، قم بتحديث الصفحة لتطبيق التغييرات.</p>
+            </div>
+            <div>
+              <p className="font-medium">الخطوة 3: اختبر الحفظ</p>
+              <p>حاول إنشاء حساب جديد أو إضافة مركبة أو رحلة للتحقق من أن البيانات تُحفظ الآن بشكل صحيح.</p>
+            </div>
+            <div>
+              <p className="font-medium">الخطوة 4: إذا استمرت المشكلة</p>
+              <p>إذا استمرت المشكلة بعد تفعيل قاعدة البيانات المحلية، ف попроб إعادة تعيين البيانات من خلال "إدارة قاعدة البيانات" في لوحة الإدارة.</p>
             </div>
           </div>
         </div>

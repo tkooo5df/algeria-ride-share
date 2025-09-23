@@ -16,6 +16,7 @@ export class BrowserDatabaseService {
     commune?: string;
     address?: string;
     isVerified?: boolean;
+    isDemo?: boolean;
   }) {
     return await browserDatabase.createProfile({
       email: data.email,
@@ -28,6 +29,7 @@ export class BrowserDatabaseService {
       commune: data.commune || 'غير محدد',
       address: data.address || 'غير محدد',
       isVerified: data.isVerified || false,
+      isDemo: data.isDemo || false,
     });
   }
 
@@ -122,12 +124,40 @@ export class BrowserDatabaseService {
     });
   }
 
-  static async getTrips() {
+  static async getTrips(driverId?: string) {
+    if (driverId) {
+      // For drivers: only return their own trips
+      return await browserDatabase.getTripsByDriver(driverId);
+    }
+    // For passengers and admins: return all available trips
     return await browserDatabase.getTrips();
   }
 
   static async getTripsByDriver(driverId: string) {
     return await browserDatabase.getTripsByDriver(driverId);
+  }
+
+  static async getAvailableTrips() {
+    // Return only trips with available seats for passengers
+    const allTrips = await browserDatabase.getTrips();
+    return allTrips.filter((trip: any) => trip.availableSeats > 0 && trip.status === 'scheduled');
+  }
+
+  static async getTripsWithDetails(driverId?: string) {
+    const trips = driverId ? await this.getTripsByDriver(driverId) : await browserDatabase.getTrips();
+    const data = await browserDatabase.getData();
+    
+    // Enrich trips with driver and vehicle details
+    return trips.map((trip: any) => {
+      const driver = data.profiles.find((p: any) => p.id === trip.driverId);
+      const vehicle = data.vehicles.find((v: any) => v.id === trip.vehicleId);
+      
+      return {
+        ...trip,
+        driver,
+        vehicle
+      };
+    });
   }
 
   static async updateTrip(id: string, data: any) {
@@ -136,6 +166,11 @@ export class BrowserDatabaseService {
 
   static async deleteTrip(id: string) {
     return await browserDatabase.deleteTrip(id);
+  }
+
+  static async getTripById(id: string) {
+    const data = await browserDatabase.getData();
+    return data.trips.find((trip: any) => trip.id === id) || null;
   }
 
   // Booking operations
@@ -184,6 +219,29 @@ export class BrowserDatabaseService {
     }
   }
 
+  static async getBookingsWithDetails(passengerId?: string, driverId?: string) {
+    const bookings = await this.getBookings(passengerId, driverId);
+    const data = await browserDatabase.getData();
+    
+    // Enrich bookings with trip, driver, and passenger details
+    return bookings.map((booking: any) => {
+      const trip = data.trips.find((t: any) => t.id === booking.tripId);
+      const driver = data.profiles.find((p: any) => p.id === booking.driverId);
+      const passenger = data.profiles.find((p: any) => p.id === booking.passengerId);
+      const vehicle = trip ? data.vehicles.find((v: any) => v.id === trip.vehicleId) : null;
+      
+      return {
+        ...booking,
+        trip: trip ? {
+          ...trip,
+          vehicle: vehicle
+        } : null,
+        driver,
+        passenger
+      };
+    });
+  }
+
   static async getBookingsByPassenger(passengerId: string) {
     return await browserDatabase.getBookingsByPassenger(passengerId);
   }
@@ -192,8 +250,44 @@ export class BrowserDatabaseService {
     return await browserDatabase.getBookingsByDriver(driverId);
   }
 
-  static async updateBooking(id: number, data: any) {
-    return await browserDatabase.updateBooking(id.toString(), data);
+  static async getBookingById(id: string | number) {
+    const data = await browserDatabase.getData();
+    const searchId = typeof id === 'number' ? id.toString() : id;
+    return data.bookings.find((booking: any) => booking.id === searchId) || null;
+  }
+
+  static async updateBooking(id: string | number, data: any) {
+    const searchId = typeof id === 'number' ? id.toString() : id;
+    const result = await browserDatabase.updateBooking(searchId, data);
+    
+    // If booking status changes to confirmed or cancelled, update trip availability
+    if (data.status === 'confirmed' || data.status === 'cancelled') {
+      await this.updateTripAvailability(result?.tripId);
+    }
+    
+    return result;
+  }
+
+  // Helper method to update trip availability based on confirmed bookings
+  static async updateTripAvailability(tripId: string) {
+    if (!tripId) return;
+    
+    const browserData = await browserDatabase.getData();
+    const trip = browserData.trips.find((t: any) => t.id === tripId);
+    if (!trip) return;
+    
+    // Calculate total confirmed bookings for this trip
+    const confirmedBookings = browserData.bookings.filter(
+      (b: any) => b.tripId === tripId && b.status === 'confirmed'
+    );
+    
+    const totalBookedSeats = confirmedBookings.reduce(
+      (sum: number, booking: any) => sum + booking.seatsBooked, 0
+    );
+    
+    const availableSeats = Math.max(0, trip.totalSeats - totalBookedSeats);
+    
+    await browserDatabase.updateTrip(tripId, { availableSeats });
   }
 
   // Notification operations
@@ -276,11 +370,6 @@ export class BrowserDatabaseService {
   static async getAllBookings() {
     const data = await browserDatabase.getData();
     return data.bookings;
-  }
-
-  // Clear all data (for testing)
-  static async clearAllData() {
-    return await browserDatabase.clearAllData();
   }
 
   // Get wilayas (Algerian provinces)

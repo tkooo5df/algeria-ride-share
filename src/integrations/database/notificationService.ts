@@ -1,51 +1,130 @@
 import { BrowserDatabaseService } from './browserServices';
 
-// Notification types
+// Comprehensive notification types
 export enum NotificationType {
+  // Booking-related notifications
   BOOKING_CREATED = 'booking_created',
   BOOKING_CONFIRMED = 'booking_confirmed',
   BOOKING_CANCELLED = 'booking_cancelled',
+  BOOKING_PENDING = 'booking_pending',
+  BOOKING_REJECTED = 'booking_rejected',
+  BOOKING_MODIFIED = 'booking_modified',
+  BOOKING_REMINDER = 'booking_reminder',
+  BOOKING_COMPLETED = 'booking_completed',
+  
+  // Trip-related notifications
   TRIP_CREATED = 'trip_created',
   TRIP_UPDATED = 'trip_updated',
   TRIP_CANCELLED = 'trip_cancelled',
+  TRIP_FULL = 'trip_full',
+  TRIP_STARTING = 'trip_starting',
+  TRIP_COMPLETED = 'trip_completed',
+  TRIP_DELAYED = 'trip_delayed',
+  
+  // Payment notifications
   PAYMENT_RECEIVED = 'payment_received',
+  PAYMENT_PENDING = 'payment_pending',
+  PAYMENT_FAILED = 'payment_failed',
+  PAYMENT_REFUNDED = 'payment_refunded',
+  
+  // Rating and review notifications
   RATING_RECEIVED = 'rating_received',
+  RATING_REQUEST = 'rating_request',
+  REVIEW_RECEIVED = 'review_received',
+  
+  // User account notifications
+  ACCOUNT_VERIFIED = 'account_verified',
+  ACCOUNT_SUSPENDED = 'account_suspended',
+  PROFILE_UPDATED = 'profile_updated',
+  PASSWORD_CHANGED = 'password_changed',
+  USER_REGISTRATION = 'user_registration',
+  
+  // Driver-specific notifications
+  DRIVER_APPROVED = 'driver_approved',
+  DRIVER_REJECTED = 'driver_rejected',
+  DOCUMENT_REQUIRED = 'document_required',
+  VEHICLE_APPROVED = 'vehicle_approved',
+  LICENSE_EXPIRING = 'license_expiring',
+  
+  // System notifications
   SYSTEM_ALERT = 'system_alert',
-  WELCOME = 'welcome'
+  SYSTEM_MAINTENANCE = 'system_maintenance',
+  WELCOME = 'welcome',
+  SECURITY_ALERT = 'security_alert',
+  UPDATE_AVAILABLE = 'update_available',
+  
+  // Communication notifications
+  MESSAGE_RECEIVED = 'message_received',
+  CALL_MISSED = 'call_missed',
+  EMERGENCY_ALERT = 'emergency_alert'
 }
 
-// Notification priority levels
+// Enhanced notification priority levels
 export enum NotificationPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  URGENT = 'urgent'
+  LOW = 'low',        // General updates, non-time-sensitive
+  MEDIUM = 'medium',  // Important but not urgent
+  HIGH = 'high',      // Time-sensitive, requires attention
+  URGENT = 'urgent',  // Critical, requires immediate action
+  CRITICAL = 'critical' // Emergency situations
 }
 
-// Smart notification service
+// Notification delivery status
+export enum NotificationStatus {
+  PENDING = 'pending',
+  SENT = 'sent',
+  DELIVERED = 'delivered',
+  READ = 'read',
+  FAILED = 'failed',
+  EXPIRED = 'expired'
+}
+
+// Notification categories for better organization
+export enum NotificationCategory {
+  BOOKING = 'booking',
+  TRIP = 'trip', 
+  PAYMENT = 'payment',
+  ACCOUNT = 'account',
+  USER = 'user',
+  SYSTEM = 'system',
+  COMMUNICATION = 'communication',
+  SAFETY = 'safety'
+}
+
+// Enhanced notification data interface
+export interface NotificationData {
+  userId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  category: NotificationCategory;
+  priority?: NotificationPriority;
+  status?: NotificationStatus;
+  relatedId?: string;
+  relatedType?: string;
+  actionUrl?: string;
+  imageUrl?: string;
+  scheduledFor?: Date;
+  expiresAt?: Date;
+  metadata?: Record<string, any>;
+}
+
+// Enhanced notification service with smart routing
 export class NotificationService {
-  // Create notification for specific user
-  static async createNotification(data: {
-    userId: string;
-    title: string;
-    message: string;
-    type: NotificationType;
-    priority?: NotificationPriority;
-    relatedId?: string;
-    relatedType?: string;
-    actionUrl?: string;
-  }) {
+  // Create notification with enhanced features
+  static async createNotification(data: NotificationData) {
     try {
       const notification = await BrowserDatabaseService.createNotification({
         userId: data.userId,
         title: data.title,
         message: data.message,
-        type: data.type as 'booking' | 'trip' | 'system' | 'payment',
-        relatedId: data.relatedId,
+        type: this.mapNotificationTypeToDatabase(data.type),
       });
 
-      // Log notification creation
-      console.log(`📧 Notification sent to user ${data.userId}: ${data.title}`);
+      // Enhanced logging with category and priority
+      console.log(`📧 [${data.category?.toUpperCase()}] [${data.priority?.toUpperCase()}] Notification sent to user ${data.userId}: ${data.title}`);
+      
+      // Track notification metrics
+      this.trackNotificationMetrics(data);
       
       return notification;
     } catch (error) {
@@ -54,9 +133,248 @@ export class NotificationService {
     }
   }
 
-  // Create booking notification system
+  // Smart notification routing based on user role and preferences
+  static async sendSmartNotification(data: NotificationData) {
+    try {
+      const user = await BrowserDatabaseService.getProfile(data.userId);
+      if (!user) throw new Error('User not found');
+
+      // Apply role-based notification rules
+      const shouldSend = await this.shouldSendNotification(user, data);
+      if (!shouldSend) {
+        console.log(`🚫 Notification blocked by user preferences: ${data.title}`);
+        return null;
+      }
+
+      // Enhanced notification with role-specific customization
+      const customizedData = await this.customizeNotificationForRole(user, data);
+      
+      return await this.createNotification(customizedData);
+    } catch (error) {
+      console.error('Error in smart notification routing:', error);
+      throw error;
+    }
+  }
+
+  // Check if notification should be sent based on user preferences
+  static async shouldSendNotification(user: any, data: NotificationData): Promise<boolean> {
+    // Check user notification preferences (would be stored in database)
+    // For now, return true for all notifications
+    // TODO: Implement user notification preferences
+    return true;
+  }
+
+  // Customize notification content based on user role
+  static async customizeNotificationForRole(user: any, data: NotificationData): Promise<NotificationData> {
+    const customized = { ...data };
+    
+    // Role-specific customization
+    switch (user.role) {
+      case 'driver':
+        if (data.type === NotificationType.BOOKING_CREATED) {
+          customized.priority = NotificationPriority.HIGH;
+          customized.actionUrl = `/driver/dashboard?tab=bookings&booking=${data.relatedId}`;
+        }
+        break;
+      case 'passenger':
+        if (data.type === NotificationType.BOOKING_CONFIRMED) {
+          customized.priority = NotificationPriority.MEDIUM;
+          customized.actionUrl = `/passenger/dashboard?tab=bookings&booking=${data.relatedId}`;
+        }
+        break;
+      case 'admin':
+        customized.actionUrl = `/admin?tab=${data.category}&id=${data.relatedId}`;
+        break;
+    }
+    
+    return customized;
+  }
+
+  // Map notification types to database compatible types
+  static mapNotificationTypeToDatabase(type: NotificationType): 'booking' | 'trip' | 'system' | 'payment' {
+    const typeMap: Record<NotificationType, 'booking' | 'trip' | 'system' | 'payment'> = {
+      [NotificationType.BOOKING_CREATED]: 'booking',
+      [NotificationType.BOOKING_CONFIRMED]: 'booking',
+      [NotificationType.BOOKING_CANCELLED]: 'booking',
+      [NotificationType.BOOKING_PENDING]: 'booking',
+      [NotificationType.BOOKING_REJECTED]: 'booking',
+      [NotificationType.BOOKING_MODIFIED]: 'booking',
+      [NotificationType.BOOKING_REMINDER]: 'booking',
+      [NotificationType.BOOKING_COMPLETED]: 'booking',
+      [NotificationType.TRIP_CREATED]: 'trip',
+      [NotificationType.TRIP_UPDATED]: 'trip',
+      [NotificationType.TRIP_CANCELLED]: 'trip',
+      [NotificationType.TRIP_FULL]: 'trip',
+      [NotificationType.TRIP_STARTING]: 'trip',
+      [NotificationType.TRIP_COMPLETED]: 'trip',
+      [NotificationType.TRIP_DELAYED]: 'trip',
+      [NotificationType.PAYMENT_RECEIVED]: 'payment',
+      [NotificationType.PAYMENT_PENDING]: 'payment',
+      [NotificationType.PAYMENT_FAILED]: 'payment',
+      [NotificationType.PAYMENT_REFUNDED]: 'payment',
+      [NotificationType.RATING_RECEIVED]: 'system',
+      [NotificationType.RATING_REQUEST]: 'system',
+      [NotificationType.REVIEW_RECEIVED]: 'system',
+      [NotificationType.ACCOUNT_VERIFIED]: 'system',
+      [NotificationType.ACCOUNT_SUSPENDED]: 'system',
+      [NotificationType.PROFILE_UPDATED]: 'system',
+      [NotificationType.PASSWORD_CHANGED]: 'system',
+      [NotificationType.USER_REGISTRATION]: 'system',
+      [NotificationType.DRIVER_APPROVED]: 'system',
+      [NotificationType.DRIVER_REJECTED]: 'system',
+      [NotificationType.DOCUMENT_REQUIRED]: 'system',
+      [NotificationType.VEHICLE_APPROVED]: 'system',
+      [NotificationType.LICENSE_EXPIRING]: 'system',
+      [NotificationType.SYSTEM_ALERT]: 'system',
+      [NotificationType.SYSTEM_MAINTENANCE]: 'system',
+      [NotificationType.WELCOME]: 'system',
+      [NotificationType.SECURITY_ALERT]: 'system',
+      [NotificationType.UPDATE_AVAILABLE]: 'system',
+      [NotificationType.MESSAGE_RECEIVED]: 'system',
+      [NotificationType.CALL_MISSED]: 'system',
+      [NotificationType.EMERGENCY_ALERT]: 'system'
+    };
+    
+    return typeMap[type] || 'system';
+  }
+
+  // Track notification metrics for analytics
+  static trackNotificationMetrics(data: NotificationData) {
+    try {
+      // Log metrics for analytics
+      console.log('📊 Notification Metrics:', {
+        type: data.type,
+        category: data.category,
+        priority: data.priority,
+        timestamp: new Date().toISOString(),
+        userId: data.userId
+      });
+    } catch (error) {
+      console.error('Error tracking notification metrics:', error);
+    }
+  }
+
+  // === CORE NOTIFICATION METHODS ===
+  
+  // Get user notifications with filtering
+  static async getUserNotifications(userId: string, filters?: {
+    type?: NotificationType;
+    category?: NotificationCategory;
+    isRead?: boolean;
+    limit?: number;
+  }) {
+    try {
+      let notifications = await BrowserDatabaseService.getNotifications(userId);
+      
+      // Apply filters
+      if (filters) {
+        if (filters.type) {
+          const dbType = this.mapNotificationTypeToDatabase(filters.type);
+          notifications = notifications.filter(n => n.type === dbType);
+        }
+        if (filters.isRead !== undefined) {
+          notifications = notifications.filter(n => n.isRead === filters.isRead);
+        }
+        if (filters.limit) {
+          notifications = notifications.slice(0, filters.limit);
+        }
+      }
+      
+      return notifications;
+    } catch (error) {
+      console.error('Error getting user notifications:', error);
+      return [];
+    }
+  }
+
+  // Mark notification as read
+  static async markAsRead(notificationId: string) {
+    try {
+      const result = await BrowserDatabaseService.markNotificationAsRead(notificationId);
+      console.log(`✓ Notification ${notificationId} marked as read`);
+      return result;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  // Get notification statistics with enhanced metrics
+  static async getNotificationStats(userId: string) {
+    try {
+      const notifications = await this.getUserNotifications(userId);
+      
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      const unreadCount = notifications.filter(n => !n.isRead).length;
+      const recentCount = notifications.filter(n => {
+        const notificationDate = new Date(n.createdAt);
+        return notificationDate > oneDayAgo;
+      }).length;
+      
+      const weeklyCount = notifications.filter(n => {
+        const notificationDate = new Date(n.createdAt);
+        return notificationDate > oneWeekAgo;
+      }).length;
+      
+      return {
+        total: notifications.length,
+        unread: unreadCount,
+        recent: recentCount,
+        weekly: weeklyCount
+      };
+    } catch (error) {
+      console.error('Error getting notification stats:', error);
+      return { 
+        total: 0, 
+        unread: 0, 
+        recent: 0, 
+        weekly: 0
+      };
+    }
+  }
+
+  // Bulk notification sender for admin broadcasts
+  static async sendBulkNotification(data: {
+    userIds: string[];
+    title: string;
+    message: string;
+    type: NotificationType;
+    category: NotificationCategory;
+    priority?: NotificationPriority;
+    metadata?: Record<string, any>;
+  }) {
+    try {
+      const notifications = [];
+      
+      for (const userId of data.userIds) {
+        const notification = await this.sendSmartNotification({
+          userId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          category: data.category,
+          priority: data.priority || NotificationPriority.MEDIUM,
+          metadata: data.metadata
+        });
+        notifications.push(notification);
+      }
+      
+      console.log(`📨 Bulk notification sent to ${data.userIds.length} users`);
+      return notifications;
+    } catch (error) {
+      console.error('Error sending bulk notification:', error);
+      throw error;
+    }
+  }
+
+  // === BOOKING NOTIFICATIONS ===
+  
+  // Enhanced booking creation notification
   static async notifyBookingCreated(bookingData: {
-    bookingId: number;
+    bookingId: number | string;
     passengerId: string;
     driverId: string;
     tripId: string;
@@ -67,79 +385,98 @@ export class NotificationService {
     paymentMethod: string;
   }) {
     try {
-      // Get trip details
-      const trips = await BrowserDatabaseService.getTrips();
-      const trip = trips.find(t => t.id === bookingData.tripId);
-      if (!trip) throw new Error('Trip not found');
+      const [trip, passenger, driver, adminProfiles] = await Promise.all([
+        this.getTripById(bookingData.tripId),
+        BrowserDatabaseService.getProfile(bookingData.passengerId),
+        BrowserDatabaseService.getProfile(bookingData.driverId),
+        this.getAdminUsers()
+      ]);
 
-      // Get passenger details
-      const passenger = await BrowserDatabaseService.getProfile(bookingData.passengerId);
-      if (!passenger) throw new Error('Passenger not found');
-
-      // Get driver details
-      const driver = await BrowserDatabaseService.getProfile(bookingData.driverId);
-      if (!driver) throw new Error('Driver not found');
-
-      // Get all admin users
-      const adminProfiles = await this.getAdminUsers();
+      if (!trip || !passenger || !driver) {
+        throw new Error('Required data not found');
+      }
 
       const notifications = [];
 
-      // 1. Notify the driver about new booking
-      const driverNotification = await this.createNotification({
+      // 1. Notify driver - High priority
+      const driverNotification = await this.sendSmartNotification({
         userId: bookingData.driverId,
-        title: 'حجز جديد! 🎉',
-        message: `تم حجز ${bookingData.seatsBooked} مقعد في رحلتك من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. المبلغ: ${bookingData.totalAmount} دج`,
+        title: '🎉 حجز جديد!',
+        message: `تم حجز ${bookingData.seatsBooked} مقعد في رحلتك من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. الراكب: ${passenger.fullName} - المبلغ: ${bookingData.totalAmount} دج`,
         type: NotificationType.BOOKING_CREATED,
+        category: NotificationCategory.BOOKING,
         priority: NotificationPriority.HIGH,
         relatedId: bookingData.bookingId.toString(),
         relatedType: 'booking',
-        actionUrl: `/driver/dashboard?tab=bookings&booking=${bookingData.bookingId}`
+        metadata: {
+          passengerId: bookingData.passengerId,
+          passengerName: passenger.fullName,
+          passengerPhone: passenger.phone,
+          seatsBooked: bookingData.seatsBooked,
+          totalAmount: bookingData.totalAmount
+        }
       });
       notifications.push(driverNotification);
 
-      // 2. Notify the passenger about booking confirmation
-      const passengerNotification = await this.createNotification({
+      // 2. Notify passenger - Confirmation
+      const passengerNotification = await this.sendSmartNotification({
         userId: bookingData.passengerId,
-        title: 'تم تأكيد حجزك! ✅',
-        message: `تم تأكيد حجزك بنجاح. السائق: ${driver.fullName} (${driver.phone}). سنتواصل معك قريباً.`,
+        title: '✅ تم تأكيد حجزك!',
+        message: `تم تأكيد حجزك بنجاح. السائق: ${driver.fullName} (${driver.phone}). سيتم التواصل معك قريباً لترتيب التفاصيل.`,
         type: NotificationType.BOOKING_CONFIRMED,
+        category: NotificationCategory.BOOKING,
         priority: NotificationPriority.MEDIUM,
         relatedId: bookingData.bookingId.toString(),
         relatedType: 'booking',
-        actionUrl: `/passenger/dashboard?tab=bookings&booking=${bookingData.bookingId}`
+        metadata: {
+          driverId: bookingData.driverId,
+          driverName: driver.fullName,
+          driverPhone: driver.phone,
+          departureTime: trip.departureTime,
+          pickupLocation: bookingData.pickupLocation
+        }
       });
       notifications.push(passengerNotification);
 
-      // 3. Notify all admins about new booking
-      for (const admin of adminProfiles) {
-        const adminNotification = await this.createNotification({
-          userId: admin.id,
-          title: 'حجز جديد في النظام 📊',
-          message: `حجز جديد: ${passenger.fullName} حجز ${bookingData.seatsBooked} مقعد في رحلة ${driver.fullName} من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. المبلغ: ${bookingData.totalAmount} دج`,
-          type: NotificationType.BOOKING_CREATED,
-          priority: NotificationPriority.MEDIUM,
-          relatedId: bookingData.bookingId.toString(),
-          relatedType: 'booking',
-          actionUrl: `/admin?tab=bookings&booking=${bookingData.bookingId}`
-        });
-        notifications.push(adminNotification);
+      // 3. Notify admins - System monitoring (only if admins exist)
+      if (adminProfiles.length > 0) {
+        for (const admin of adminProfiles) {
+          const adminNotification = await this.sendSmartNotification({
+            userId: admin.id,
+            title: '📊 حجز جديد في النظام',
+            message: `حجز جديد: ${passenger.fullName} حجز ${bookingData.seatsBooked} مقعد في رحلة ${driver.fullName} من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. المبلغ: ${bookingData.totalAmount} دج`,
+            type: NotificationType.BOOKING_CREATED,
+            category: NotificationCategory.SYSTEM,
+            priority: NotificationPriority.MEDIUM,
+            relatedId: bookingData.bookingId.toString(),
+            relatedType: 'booking',
+            metadata: {
+              bookingId: bookingData.bookingId,
+              revenue: bookingData.totalAmount,
+              paymentMethod: bookingData.paymentMethod
+            }
+          });
+          notifications.push(adminNotification);
+        }
       }
 
-      // 4. Create admin log entry
-      await this.logAdminAction({
-        adminId: adminProfiles[0]?.id || 'system',
-        action: 'booking_created',
-        targetType: 'booking',
-        targetId: bookingData.bookingId.toString(),
-        details: {
-          passengerId: bookingData.passengerId,
-          driverId: bookingData.driverId,
-          tripId: bookingData.tripId,
-          amount: bookingData.totalAmount,
-          seats: bookingData.seatsBooked
-        }
-      });
+      // 4. Log admin action (only if admins exist)
+      if (adminProfiles.length > 0) {
+        await this.logAdminAction({
+          adminId: adminProfiles[0].id,
+          action: 'booking_created',
+          targetType: 'booking',
+          targetId: bookingData.bookingId.toString(),
+          details: {
+            passengerId: bookingData.passengerId,
+            driverId: bookingData.driverId,
+            tripId: bookingData.tripId,
+            amount: bookingData.totalAmount,
+            seats: bookingData.seatsBooked,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
 
       return notifications;
     } catch (error) {
@@ -148,95 +485,138 @@ export class NotificationService {
     }
   }
 
-  // Notify when booking is confirmed by driver
-  static async notifyBookingConfirmed(bookingId: number, driverId: string) {
+  // Booking confirmation by driver
+  static async notifyBookingConfirmed(bookingId: number | string, driverId: string) {
     try {
-      const bookings = await BrowserDatabaseService.getAllBookings();
-      const booking = bookings.find(b => b.id === bookingId);
-      if (!booking) throw new Error('Booking not found');
+      const [booking, driver] = await Promise.all([
+        this.getBookingById(bookingId),
+        BrowserDatabaseService.getProfile(driverId)
+      ]);
 
-      const driver = await BrowserDatabaseService.getProfile(driverId);
-      if (!driver) throw new Error('Driver not found');
+      if (!booking) {
+        throw new Error(`Booking not found: ${bookingId}`);
+      }
+      
+      if (!driver) {
+        throw new Error(`Driver not found: ${driverId}`);
+      }
+
+      const notifications = [];
 
       // Notify passenger
-      await this.createNotification({
+      const passengerNotification = await this.sendSmartNotification({
         userId: booking.passengerId!,
-        title: 'تم قبول حجزك! 🚗',
-        message: `السائق ${driver.fullName} قبل حجزك. سيتم التواصل معك قريباً لترتيب التفاصيل.`,
+        title: '🚗 تم قبول حجزك!',
+        message: `السائق ${driver.fullName} قبل حجزك. يمكنك التواصل معه على ${driver.phone} لترتيب تفاصيل الرحلة.`,
         type: NotificationType.BOOKING_CONFIRMED,
+        category: NotificationCategory.BOOKING,
         priority: NotificationPriority.HIGH,
         relatedId: bookingId.toString(),
-        relatedType: 'booking'
+        relatedType: 'booking',
+        metadata: {
+          driverName: driver.fullName,
+          driverPhone: driver.phone,
+          status: 'confirmed'
+        }
       });
+      notifications.push(passengerNotification);
 
       // Notify admins
       const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
-        await this.createNotification({
+        const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: 'تم تأكيد حجز',
+          title: '✅ تم تأكيد حجز',
           message: `السائق ${driver.fullName} أكد حجز #${bookingId}`,
           type: NotificationType.BOOKING_CONFIRMED,
+          category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
           relatedId: bookingId.toString(),
           relatedType: 'booking'
         });
+        notifications.push(adminNotification);
       }
+
+      return notifications;
     } catch (error) {
       console.error('Error in notifyBookingConfirmed:', error);
       throw error;
     }
   }
 
-  // Notify when booking is cancelled
-  static async notifyBookingCancelled(bookingId: number, cancelledBy: string, reason?: string) {
+  // Booking cancellation notification
+  static async notifyBookingCancelled(bookingId: number | string, cancelledBy: string, reason?: string) {
     try {
-      const bookings = await BrowserDatabaseService.getAllBookings();
-      const booking = bookings.find(b => b.id === bookingId);
-      if (!booking) throw new Error('Booking not found');
+      const [booking, cancelledByUser] = await Promise.all([
+        this.getBookingById(bookingId),
+        BrowserDatabaseService.getProfile(cancelledBy)
+      ]);
 
-      const cancelledByUser = await BrowserDatabaseService.getProfile(cancelledBy);
-      if (!cancelledByUser) throw new Error('User not found');
-
-      // Notify both passenger and driver
-      const notifications = [];
-
-      if (booking.passengerId) {
-        notifications.push(await this.createNotification({
-          userId: booking.passengerId,
-          title: 'تم إلغاء الحجز',
-          message: `تم إلغاء حجزك ${reason ? `بسبب: ${reason}` : ''}`,
-          type: NotificationType.BOOKING_CANCELLED,
-          priority: NotificationPriority.MEDIUM,
-          relatedId: bookingId.toString(),
-          relatedType: 'booking'
-        }));
+      if (!booking || !cancelledByUser) {
+        throw new Error('Booking or user not found');
       }
 
-      if (booking.driverId) {
-        notifications.push(await this.createNotification({
-          userId: booking.driverId,
-          title: 'تم إلغاء الحجز',
-          message: `تم إلغاء حجز #${bookingId} ${reason ? `بسبب: ${reason}` : ''}`,
+      const notifications = [];
+      const reasonText = reason ? ` السبب: ${reason}` : '';
+
+      // Notify passenger (if not the one who cancelled)
+      if (booking.passengerId && booking.passengerId !== cancelledBy) {
+        const passengerNotification = await this.sendSmartNotification({
+          userId: booking.passengerId,
+          title: '❌ تم إلغاء الحجز',
+          message: `تم إلغاء حجزك #${bookingId}.${reasonText} سيتم رد المبلغ خلال 3-5 أيام عمل.`,
           type: NotificationType.BOOKING_CANCELLED,
+          category: NotificationCategory.BOOKING,
+          priority: NotificationPriority.HIGH,
+          relatedId: bookingId.toString(),
+          relatedType: 'booking',
+          metadata: {
+            cancelledBy: cancelledByUser.fullName,
+            reason: reason,
+            refundStatus: 'pending'
+          }
+        });
+        notifications.push(passengerNotification);
+      }
+
+      // Notify driver (if not the one who cancelled)
+      if (booking.driverId && booking.driverId !== cancelledBy) {
+        const driverNotification = await this.sendSmartNotification({
+          userId: booking.driverId,
+          title: '❌ تم إلغاء حجز',
+          message: `تم إلغاء حجز #${bookingId}.${reasonText} المقاعد متاحة الآن للحجز مرة أخرى.`,
+          type: NotificationType.BOOKING_CANCELLED,
+          category: NotificationCategory.BOOKING,
           priority: NotificationPriority.MEDIUM,
           relatedId: bookingId.toString(),
-          relatedType: 'booking'
-        }));
+          relatedType: 'booking',
+          metadata: {
+            cancelledBy: cancelledByUser.fullName,
+            reason: reason
+          }
+        });
+        notifications.push(driverNotification);
       }
 
       // Notify admins
       const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
-        notifications.push(await this.createNotification({
+        const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: 'تم إلغاء حجز',
-          message: `تم إلغاء حجز #${bookingId} من قبل ${cancelledByUser.fullName}`,
+          title: '❌ تم إلغاء حجز',
+          message: `تم إلغاء حجز #${bookingId} من قبل ${cancelledByUser.fullName}.${reasonText}`,
           type: NotificationType.BOOKING_CANCELLED,
+          category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
           relatedId: bookingId.toString(),
-          relatedType: 'booking'
-        }));
+          relatedType: 'booking',
+          metadata: {
+            cancelledBy: cancelledBy,
+            reason: reason,
+            refundRequired: true
+          }
+        });
+        notifications.push(adminNotification);
       }
 
       return notifications;
@@ -246,55 +626,711 @@ export class NotificationService {
     }
   }
 
-  // Notify when new trip is created
+  // Booking reminder notification
+  static async notifyBookingReminder(bookingId: number | string, reminderType: 'departure' | 'pickup' = 'departure') {
+    try {
+      const booking = await this.getBookingById(bookingId);
+      if (!booking) throw new Error('Booking not found');
+
+      const [passenger, driver, trip] = await Promise.all([
+        BrowserDatabaseService.getProfile(booking.passengerId!),
+        BrowserDatabaseService.getProfile(booking.driverId!),
+        this.getTripById(booking.tripId!)
+      ]);
+
+      if (!passenger || !driver || !trip) {
+        throw new Error('Required data not found');
+      }
+
+      const notifications = [];
+      const reminderMessage = reminderType === 'departure' 
+        ? `تذكير: رحلتك ستبدأ خلال ساعة واحدة من ${trip.fromWilayaId} إلى ${trip.toWilayaId}`
+        : `تذكير: موعد الانطلاق اقترب. تواصل مع السائق ${driver.fullName} على ${driver.phone}`;
+
+      // Notify passenger
+      const passengerNotification = await this.sendSmartNotification({
+        userId: booking.passengerId!,
+        title: '⏰ تذكير برحلتك',
+        message: reminderMessage,
+        type: NotificationType.BOOKING_REMINDER,
+        category: NotificationCategory.BOOKING,
+        priority: NotificationPriority.HIGH,
+        relatedId: bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          reminderType,
+          driverPhone: driver.phone,
+          departureTime: trip.departureTime
+        }
+      });
+      notifications.push(passengerNotification);
+
+      // Notify driver
+      const driverNotification = await this.sendSmartNotification({
+        userId: booking.driverId!,
+        title: '⏰ تذكير برحلتك',
+        message: `تذكير: رحلتك ستبدأ قريباً. راكب: ${passenger.fullName} (${passenger.phone})`,
+        type: NotificationType.BOOKING_REMINDER,
+        category: NotificationCategory.BOOKING,
+        priority: NotificationPriority.HIGH,
+        relatedId: bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          reminderType,
+          passengerPhone: passenger.phone,
+          departureTime: trip.departureTime
+        }
+      });
+      notifications.push(driverNotification);
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyBookingReminder:', error);
+      throw error;
+    }
+  }
+
+  // === TRIP NOTIFICATIONS ===
+  
+  // New trip creation notification
   static async notifyTripCreated(tripId: string, driverId: string) {
     try {
-      const trips = await BrowserDatabaseService.getTrips();
-      const trip = trips.find(t => t.id === tripId);
-      if (!trip) throw new Error('Trip not found');
+      const [trip, driver] = await Promise.all([
+        this.getTripById(tripId),
+        BrowserDatabaseService.getProfile(driverId)
+      ]);
 
-      const driver = await BrowserDatabaseService.getProfile(driverId);
-      if (!driver) throw new Error('Driver not found');
+      if (!trip || !driver) {
+        throw new Error('Trip or driver not found');
+      }
+
+      const notifications = [];
+
+      // Notify driver about successful trip creation
+      const driverNotification = await this.sendSmartNotification({
+        userId: driverId,
+        title: '✅ تم نشر رحلتك!',
+        message: `تم نشر رحلتك بنجاح من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج. ستتلقى إشعارات عند وجود حجوزات.`,
+        type: NotificationType.TRIP_CREATED,
+        category: NotificationCategory.TRIP,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: tripId,
+        relatedType: 'trip',
+        metadata: {
+          fromWilayaId: trip.fromWilayaId,
+          toWilayaId: trip.toWilayaId,
+          pricePerSeat: trip.pricePerSeat,
+          availableSeats: trip.availableSeats
+        }
+      });
+      notifications.push(driverNotification);
 
       // Notify admins about new trip
       const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
-        await this.createNotification({
+        const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: 'رحلة جديدة منشورة 🚗',
-          message: `السائق ${driver.fullName} أنشأ رحلة جديدة من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج`,
+          title: '🚗 رحلة جديدة منشورة',
+          message: `السائق ${driver.fullName} أنشأ رحلة جديدة من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج للمقعد.`,
           type: NotificationType.TRIP_CREATED,
+          category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
           relatedId: tripId,
-          relatedType: 'trip'
+          relatedType: 'trip',
+          metadata: {
+            driverId: driverId,
+            driverName: driver.fullName,
+            revenue: trip.pricePerSeat * trip.availableSeats
+          }
         });
+        notifications.push(adminNotification);
       }
+
+      return notifications;
     } catch (error) {
       console.error('Error in notifyTripCreated:', error);
       throw error;
     }
   }
 
+  // Trip cancellation notification
+  static async notifyTripCancelled(tripId: string, driverId: string, reason?: string) {
+    try {
+      const [trip, driver] = await Promise.all([
+        this.getTripById(tripId),
+        BrowserDatabaseService.getProfile(driverId)
+      ]);
+
+      if (!trip || !driver) {
+        throw new Error('Trip or driver not found');
+      }
+
+      // Get all bookings for this trip
+      const allBookings = await BrowserDatabaseService.getAllBookings();
+      const tripBookings = allBookings.filter(b => b.tripId === tripId);
+
+      const notifications = [];
+      const reasonText = reason ? ` السبب: ${reason}` : '';
+
+      // Notify all passengers with bookings
+      for (const booking of tripBookings) {
+        if (booking.passengerId) {
+          const passengerNotification = await this.sendSmartNotification({
+            userId: booking.passengerId,
+            title: '❌ تم إلغاء الرحلة',
+            message: `نعتذر لإبلاغك بأن الرحلة من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} تم إلغاؤها.${reasonText} سيتم رد المبلغ بالكامل.`,
+            type: NotificationType.TRIP_CANCELLED,
+            category: NotificationCategory.TRIP,
+            priority: NotificationPriority.HIGH,
+            relatedId: tripId,
+            relatedType: 'trip',
+            metadata: {
+              bookingId: booking.id,
+              refundAmount: booking.totalAmount,
+              reason: reason
+            }
+          });
+          notifications.push(passengerNotification);
+        }
+      }
+
+      // Notify admins
+      const adminProfiles = await this.getAdminUsers();
+      for (const admin of adminProfiles) {
+        const adminNotification = await this.sendSmartNotification({
+          userId: admin.id,
+          title: '❌ رحلة ملغاة',
+          message: `السائق ${driver.fullName} ألغى رحلة ${tripId} مع ${tripBookings.length} حجز.${reasonText}`,
+          type: NotificationType.TRIP_CANCELLED,
+          category: NotificationCategory.SYSTEM,
+          priority: NotificationPriority.HIGH,
+          relatedId: tripId,
+          relatedType: 'trip',
+          metadata: {
+            affectedBookings: tripBookings.length,
+            refundsRequired: tripBookings.length,
+            reason: reason
+          }
+        });
+        notifications.push(adminNotification);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyTripCancelled:', error);
+      throw error;
+    }
+  }
+
+  // Trip starting notification
+  static async notifyTripStarting(tripId: string) {
+    try {
+      const trip = await this.getTripById(tripId);
+      if (!trip) throw new Error('Trip not found');
+
+      const [driver, allBookings] = await Promise.all([
+        BrowserDatabaseService.getProfile(trip.driverId),
+        BrowserDatabaseService.getAllBookings()
+      ]);
+
+      const tripBookings = allBookings.filter(b => b.tripId === tripId);
+      const notifications = [];
+
+      // Notify driver
+      const driverNotification = await this.sendSmartNotification({
+        userId: trip.driverId,
+        title: '🚗 وقت بدء الرحلة!',
+        message: `حان وقت بدء رحلتك من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId}. عدد الركاب: ${tripBookings.length}`,
+        type: NotificationType.TRIP_STARTING,
+        category: NotificationCategory.TRIP,
+        priority: NotificationPriority.HIGH,
+        relatedId: tripId,
+        relatedType: 'trip',
+        metadata: {
+          passengerCount: tripBookings.length,
+          departureTime: trip.departureTime
+        }
+      });
+      notifications.push(driverNotification);
+
+      // Notify all passengers
+      for (const booking of tripBookings) {
+        if (booking.passengerId) {
+          const passengerNotification = await this.sendSmartNotification({
+            userId: booking.passengerId,
+            title: '🚗 بدأت رحلتك!',
+            message: `بدأت رحلتك مع السائق ${driver?.fullName}. رقم الهاتف: ${driver?.phone}`,
+            type: NotificationType.TRIP_STARTING,
+            category: NotificationCategory.TRIP,
+            priority: NotificationPriority.HIGH,
+            relatedId: tripId,
+            relatedType: 'trip',
+            metadata: {
+              driverPhone: driver?.phone,
+              departureTime: trip.departureTime
+            }
+          });
+          notifications.push(passengerNotification);
+        }
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyTripStarting:', error);
+      throw error;
+    }
+  }
+
+  // === PAYMENT NOTIFICATIONS ===
+  
+  // Payment received notification
+  static async notifyPaymentReceived(paymentData: {
+    bookingId: number | string;
+    amount: number;
+    paymentMethod: string;
+    payerId: string;
+    recipientId: string;
+  }) {
+    try {
+      const notifications = [];
+
+      // Notify payer (passenger)
+      const payerNotification = await this.sendSmartNotification({
+        userId: paymentData.payerId,
+        title: '✅ تم استلام الدفعة',
+        message: `تم استلام دفعتك بمبلغ ${paymentData.amount} دج بنجاح عبر ${paymentData.paymentMethod}. رقم الحجز: #${paymentData.bookingId}`,
+        type: NotificationType.PAYMENT_RECEIVED,
+        category: NotificationCategory.PAYMENT,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: paymentData.bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          transactionId: `TXN_${Date.now()}`
+        }
+      });
+      notifications.push(payerNotification);
+
+      // Notify recipient (driver)
+      const recipientNotification = await this.sendSmartNotification({
+        userId: paymentData.recipientId,
+        title: '💰 تم استلام دفعة',
+        message: `تم استلام دفعة بمبلغ ${paymentData.amount} دج من راكب في حجز #${paymentData.bookingId}. سيتم تحويل المبلغ إلى حسابك.`,
+        type: NotificationType.PAYMENT_RECEIVED,
+        category: NotificationCategory.PAYMENT,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: paymentData.bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          amount: paymentData.amount,
+          commission: paymentData.amount * 0.1, // 10% platform fee
+          netAmount: paymentData.amount * 0.9
+        }
+      });
+      notifications.push(recipientNotification);
+
+      // Notify admins
+      const adminProfiles = await this.getAdminUsers();
+      for (const admin of adminProfiles) {
+        const adminNotification = await this.sendSmartNotification({
+          userId: admin.id,
+          title: '💰 دفعة جديدة',
+          message: `تم استلام دفعة ${paymentData.amount} دج للحجز #${paymentData.bookingId} عبر ${paymentData.paymentMethod}`,
+          type: NotificationType.PAYMENT_RECEIVED,
+          category: NotificationCategory.SYSTEM,
+          priority: NotificationPriority.MEDIUM,
+          relatedId: paymentData.bookingId.toString(),
+          relatedType: 'booking',
+          metadata: {
+            totalAmount: paymentData.amount,
+            platformFee: paymentData.amount * 0.1,
+            paymentMethod: paymentData.paymentMethod
+          }
+        });
+        notifications.push(adminNotification);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyPaymentReceived:', error);
+      throw error;
+    }
+  }
+
+  // Payment failed notification
+  static async notifyPaymentFailed(paymentData: {
+    bookingId: number | string;
+    amount: number;
+    paymentMethod: string;
+    payerId: string;
+    reason: string;
+  }) {
+    try {
+      // Notify payer about failed payment
+      const notification = await this.sendSmartNotification({
+        userId: paymentData.payerId,
+        title: '❌ فشل في الدفع',
+        message: `فشلت عملية دفع ${paymentData.amount} دج للحجز #${paymentData.bookingId}. السبب: ${paymentData.reason}. يرجى المحاولة مرة أخرى.`,
+        type: NotificationType.PAYMENT_FAILED,
+        category: NotificationCategory.PAYMENT,
+        priority: NotificationPriority.HIGH,
+        relatedId: paymentData.bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          failureReason: paymentData.reason
+        }
+      });
+
+      return [notification];
+    } catch (error) {
+      console.error('Error in notifyPaymentFailed:', error);
+      throw error;
+    }
+  }
+
+  // === SYSTEM & USER NOTIFICATIONS ===
+  
+  // Welcome notification for new users
+  static async notifyWelcomeUser(userId: string, userRole: string) {
+    try {
+      const user = await BrowserDatabaseService.getProfile(userId);
+      if (!user) throw new Error('User not found');
+
+      const roleMessages = {
+        passenger: 'مرحباً بك في منصة مشاركة الركوب! يمكنك الآن البحث عن رحلات وحجز مقاعد بسهولة.',
+        driver: 'مرحباً بك كسائق في DZ Taxi! يمكنك الآن إنشاء الرحلات ومشاركة مقاعدك مع الراكبين.',
+        admin: 'مرحباً بك في لوحة إدارة DZ Taxi. يمكنك إدارة النظام بالكامل.'
+      };
+
+      const notification = await this.sendSmartNotification({
+        userId,
+        title: `مرحباً بك يا ${user.fullName}! 🎉`,
+        message: roleMessages[userRole as keyof typeof roleMessages] || roleMessages.passenger,
+        type: NotificationType.ACCOUNT_VERIFIED,
+        category: NotificationCategory.USER,
+        priority: NotificationPriority.MEDIUM,
+        metadata: {
+          userRole,
+          welcomeType: 'new_user',
+          registrationDate: new Date().toISOString()
+        }
+      });
+
+      return notification;
+    } catch (error) {
+      console.error('Error in notifyWelcomeUser:', error);
+      throw error;
+    }
+  }
+
+  // New user registration notification for admins
+  static async notifyNewUserRegistration(data: {
+    userId: string;
+    userRole: 'driver' | 'passenger' | 'admin';
+    userName: string;
+    userEmail: string;
+  }) {
+    try {
+      const notifications = [];
+      
+      // Get all admin users
+      const adminProfiles = await this.getAdminUsers();
+      
+      const roleEmojis = {
+        driver: '🚗',
+        passenger: '👤',
+        admin: '🛡️'
+      };
+
+      for (const admin of adminProfiles) {
+        const adminNotification = await this.sendSmartNotification({
+          userId: admin.id,
+          title: `${roleEmojis[data.userRole]} مستخدم جديد`,
+          message: `انضم ${data.userName} (ك${data.userRole === 'driver' ? 'سائق' : data.userRole === 'passenger' ? 'راكب' : 'مدير'}) إلى المنصة. البريد: ${data.userEmail}`,
+          type: NotificationType.USER_REGISTRATION,
+          category: NotificationCategory.SYSTEM,
+          priority: NotificationPriority.MEDIUM,
+          relatedId: data.userId,
+          relatedType: 'user',
+          metadata: {
+            userRole: data.userRole,
+            userName: data.userName,
+            userEmail: data.userEmail,
+            registrationDate: new Date().toISOString()
+          }
+        });
+        notifications.push(adminNotification);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyNewUserRegistration:', error);
+      throw error;
+    }
+  }
+
+  // Account verification notification
+  static async notifyAccountVerified(userId: string) {
+    try {
+      return await this.sendSmartNotification({
+        userId: userId,
+        title: '✅ تم تأكيد حسابك',
+        message: 'تهانينا! تم تأكيد حسابك بنجاح. يمكنك الآن الوصول إلى جميع ميزات المنصة.',
+        type: NotificationType.ACCOUNT_VERIFIED,
+        category: NotificationCategory.ACCOUNT,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: userId,
+        relatedType: 'user'
+      });
+    } catch (error) {
+      console.error('Error in notifyAccountVerified:', error);
+      throw error;
+    }
+  }
+
+  // Driver approval notification
+  static async notifyDriverApproved(driverId: string) {
+    try {
+      return await this.sendSmartNotification({
+        userId: driverId,
+        title: '🎉 تم قبول طلبك للقيادة!',
+        message: 'تهانينا! تم قبول طلبك لتصبح سائقاً في منصتنا. يمكنك الآن إنشاء رحلات واستقبال حجوزات.',
+        type: NotificationType.DRIVER_APPROVED,
+        category: NotificationCategory.ACCOUNT,
+        priority: NotificationPriority.HIGH,
+        relatedId: driverId,
+        relatedType: 'user'
+      });
+    } catch (error) {
+      console.error('Error in notifyDriverApproved:', error);
+      throw error;
+    }
+  }
+
+  // System maintenance notification
+  static async notifySystemMaintenance(maintenanceData: {
+    startTime: string;
+    endTime: string;
+    description: string;
+  }) {
+    try {
+      const allProfiles = await BrowserDatabaseService.getAllProfiles();
+      const notifications = [];
+
+      for (const profile of allProfiles) {
+        const notification = await this.sendSmartNotification({
+          userId: profile.id,
+          title: '🔧 صيانة مجدولة للنظام',
+          message: `سيتم إجراء صيانة للنظام من ${maintenanceData.startTime} إلى ${maintenanceData.endTime}. ${maintenanceData.description}`,
+          type: NotificationType.SYSTEM_MAINTENANCE,
+          category: NotificationCategory.SYSTEM,
+          priority: NotificationPriority.HIGH,
+          relatedId: 'maintenance',
+          relatedType: 'system',
+          metadata: {
+            startTime: maintenanceData.startTime,
+            endTime: maintenanceData.endTime,
+            description: maintenanceData.description
+          }
+        });
+        notifications.push(notification);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifySystemMaintenance:', error);
+      throw error;
+    }
+  }
+
+  // Security alert notification
+  static async notifySecurityAlert(userId: string, alertData: {
+    type: string;
+    description: string;
+    ipAddress?: string;
+    location?: string;
+  }) {
+    try {
+      return await this.sendSmartNotification({
+        userId: userId,
+        title: '⚠️ تنبيه أمني',
+        message: `تم رصد نشاط مشبوه في حسابك: ${alertData.description}. إذا لم تكن أنت، يرجى تغيير كلمة المرور فوراً.`,
+        type: NotificationType.SECURITY_ALERT,
+        category: NotificationCategory.SAFETY,
+        priority: NotificationPriority.CRITICAL,
+        relatedId: userId,
+        relatedType: 'user',
+        metadata: {
+          alertType: alertData.type,
+          ipAddress: alertData.ipAddress,
+          location: alertData.location,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Error in notifySecurityAlert:', error);
+      throw error;
+    }
+  }
+
+  // === VEHICLE NOTIFICATIONS ===
+  
+  // Vehicle added notification
+  static async notifyVehicleAdded(data: {
+    driverId: string;
+    vehicleId: string;
+    vehicleName: string;
+    licensePlate: string;
+  }) {
+    try {
+      const notification = await this.sendSmartNotification({
+        userId: data.driverId,
+        title: '🚗 تم إضافة مركبتك بنجاح!',
+        message: `تم إضافة مركبة ${data.vehicleName} (لوحة: ${data.licensePlate}) بنجاح. يمكنك الآن استخدامها في رحلاتك.`,
+        type: NotificationType.VEHICLE_APPROVED,
+        category: NotificationCategory.ACCOUNT,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: data.vehicleId,
+        relatedType: 'vehicle',
+        metadata: {
+          vehicleName: data.vehicleName,
+          licensePlate: data.licensePlate
+        }
+      });
+
+      return notification;
+    } catch (error) {
+      console.error('Error in notifyVehicleAdded:', error);
+      throw error;
+    }
+  }
+
+  // Admin notification for new vehicle
+  static async notifyAdminNewVehicle(data: {
+    driverId: string;
+    driverName: string;
+    vehicleId: string;
+    vehicleDetails: string;
+  }) {
+    try {
+      const notifications = [];
+      const adminProfiles = await this.getAdminUsers();
+
+      for (const admin of adminProfiles) {
+        const adminNotification = await this.sendSmartNotification({
+          userId: admin.id,
+          title: '🚗 مركبة جديدة',
+          message: `أضاف السائق ${data.driverName} مركبة جديدة: ${data.vehicleDetails}. يمكنك مراجعتها في لوحة الإدارة.`,
+          type: NotificationType.DOCUMENT_REQUIRED,
+          category: NotificationCategory.SYSTEM,
+          priority: NotificationPriority.MEDIUM,
+          relatedId: data.vehicleId,
+          relatedType: 'vehicle',
+          metadata: {
+            driverId: data.driverId,
+            driverName: data.driverName,
+            vehicleDetails: data.vehicleDetails
+          }
+        });
+        notifications.push(adminNotification);
+      }
+
+      return notifications;
+    } catch (error) {
+      console.error('Error in notifyAdminNewVehicle:', error);
+      throw error;
+    }
+  }
+
+  // Vehicle status update notification
+  static async notifyVehicleStatusUpdate(data: {
+    driverId: string;
+    vehicleId: string;
+    vehicleName: string;
+    newStatus: 'active' | 'inactive' | 'pending_approval';
+    reason?: string;
+  }) {
+    try {
+      const statusMessages = {
+        active: '✅ تم تفعيل مركبتك',
+        inactive: '🚫 تم إلغاء تفعيل مركبتك',
+        pending_approval: '⏳ مركبتك قيد المراجعة'
+      };
+
+      const statusDetails = {
+        active: 'يمكنك الآن استخدام هذه المركبة في رحلاتك.',
+        inactive: 'لن تتمكن من استخدام هذه المركبة في رحلات جديدة.',
+        pending_approval: 'نحن نراجع بيانات مركبتك. سنخبرك بالنتيجة قريباً.'
+      };
+
+      const notification = await this.sendSmartNotification({
+        userId: data.driverId,
+        title: statusMessages[data.newStatus],
+        message: `مركبة ${data.vehicleName}: ${statusDetails[data.newStatus]}${data.reason ? ` السبب: ${data.reason}` : ''}`,
+        type: data.newStatus === 'active' ? NotificationType.VEHICLE_APPROVED : NotificationType.DOCUMENT_REQUIRED,
+        category: NotificationCategory.ACCOUNT,
+        priority: data.newStatus === 'inactive' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+        relatedId: data.vehicleId,
+        relatedType: 'vehicle',
+        metadata: {
+          vehicleName: data.vehicleName,
+          newStatus: data.newStatus,
+          reason: data.reason
+        }
+      });
+
+      return notification;
+    } catch (error) {
+      console.error('Error in notifyVehicleStatusUpdate:', error);
+      throw error;
+    }
+  }
+
+  // === HELPER METHODS ===
+  
+  // Get trip by ID
+  static async getTripById(tripId: string) {
+    try {
+      const trips = await BrowserDatabaseService.getTrips();
+      return trips.find(t => t.id === tripId) || null;
+    } catch (error) {
+      console.error('Error getting trip by ID:', error);
+      return null;
+    }
+  }
+
+  // Get booking by ID
+  static async getBookingById(bookingId: number | string) {
+    try {
+      const bookings = await BrowserDatabaseService.getAllBookings();
+      if (!bookings || !Array.isArray(bookings)) {
+        console.error('No bookings found or invalid bookings data');
+        return null;
+      }
+      
+      // Convert bookingId to string for comparison since browser database uses string IDs
+      const searchId = bookingId.toString();
+      const foundBooking = bookings.find(b => b.id === searchId);
+      
+      return foundBooking || null;
+    } catch (error) {
+      console.error('Error getting booking by ID:', error);
+      return null;
+    }
+  }
+
   // Get all admin users
   static async getAdminUsers() {
     try {
-      // In local mode, we'll get all profiles and filter admins
-      // In Supabase mode, this would be a proper query
       const allProfiles = await BrowserDatabaseService.getAllProfiles();
       
       // Filter admin users
       const adminUsers = allProfiles.filter(profile => profile.role === 'admin');
       
-      // If no admin users exist, return the default admin
-      if (adminUsers.length === 0) {
-        return [{
-          id: 'admin-1',
-          fullName: 'مدير النظام',
-          email: 'admin@test.com',
-          role: 'admin'
-        }];
-      }
-      
+      // Return actual admin users only, don't create fake ones
       return adminUsers;
     } catch (error) {
       console.error('Error getting admin users:', error);
@@ -311,59 +1347,41 @@ export class NotificationService {
     details?: any;
   }) {
     try {
-      // For now, just log to console since we don't have admin logs in browser database
-      console.log('Admin Action:', {
+      // Enhanced admin logging with more details
+      const logEntry = {
         adminId: data.adminId,
         action: data.action,
         targetType: data.targetType,
         targetId: data.targetId,
         details: data.details,
-        timestamp: new Date().toISOString()
-      });
+        timestamp: new Date().toISOString(),
+        severity: this.getActionSeverity(data.action)
+      };
+      
+      console.log('📝 Admin Action Log:', logEntry);
+      
+      // TODO: Store in actual admin logs table when available
+      return logEntry;
     } catch (error) {
       console.error('Error logging admin action:', error);
     }
   }
 
-  // Get user notifications
-  static async getUserNotifications(userId: string) {
-    try {
-      return await BrowserDatabaseService.getNotifications(userId);
-    } catch (error) {
-      console.error('Error getting user notifications:', error);
-      return [];
-    }
+  // Get action severity for logging
+  static getActionSeverity(action: string): 'low' | 'medium' | 'high' | 'critical' {
+    const severityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+      'booking_created': 'low',
+      'booking_confirmed': 'low',
+      'booking_cancelled': 'medium',
+      'trip_created': 'low',
+      'trip_cancelled': 'high',
+      'payment_received': 'medium',
+      'payment_failed': 'high',
+      'user_suspended': 'critical',
+      'security_alert': 'critical'
+    };
+    
+    return severityMap[action] || 'low';
   }
 
-  // Mark notification as read
-  static async markAsRead(notificationId: string) {
-    try {
-      return await BrowserDatabaseService.markNotificationAsRead(notificationId);
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      throw error;
-    }
-  }
-
-  // Get notification statistics
-  static async getNotificationStats(userId: string) {
-    try {
-      const notifications = await this.getUserNotifications(userId);
-      const unreadCount = notifications.filter(n => !n.isRead).length;
-      const recentCount = notifications.filter(n => {
-        const notificationDate = new Date(n.createdAt);
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        return notificationDate > oneDayAgo;
-      }).length;
-
-      return {
-        total: notifications.length,
-        unread: unreadCount,
-        recent: recentCount
-      };
-    } catch (error) {
-      console.error('Error getting notification stats:', error);
-      return { total: 0, unread: 0, recent: 0 };
-    }
-  }
 }

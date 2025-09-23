@@ -16,6 +16,7 @@ export interface Profile {
   avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
+  isDemo?: boolean; // Add this line to mark demo accounts
 }
 
 export interface Vehicle {
@@ -94,8 +95,23 @@ class BrowserDatabase {
   private storageKey = 'dz_taxi_database';
 
   public getData() {
-    const data = localStorage.getItem(this.storageKey);
-    if (!data) {
+    try {
+      const data = localStorage.getItem(this.storageKey);
+      if (!data) {
+        // Return default structure if no data exists
+        return {
+          profiles: [],
+          vehicles: [],
+          trips: [],
+          bookings: [],
+          notifications: [],
+          systemSettings: []
+        };
+      }
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Error parsing data from localStorage:', error);
+      // Return default structure if parsing fails
       return {
         profiles: [],
         vehicles: [],
@@ -105,11 +121,25 @@ class BrowserDatabase {
         systemSettings: []
       };
     }
-    return JSON.parse(data);
   }
 
   private saveData(data: any) {
-    localStorage.setItem(this.storageKey, JSON.stringify(data));
+    try {
+      // Ensure all required arrays exist
+      const validatedData = {
+        profiles: Array.isArray(data.profiles) ? data.profiles : [],
+        vehicles: Array.isArray(data.vehicles) ? data.vehicles : [],
+        trips: Array.isArray(data.trips) ? data.trips : [],
+        bookings: Array.isArray(data.bookings) ? data.bookings : [],
+        notifications: Array.isArray(data.notifications) ? data.notifications : [],
+        systemSettings: Array.isArray(data.systemSettings) ? data.systemSettings : []
+      };
+      
+      localStorage.setItem(this.storageKey, JSON.stringify(validatedData));
+      console.log('Data saved successfully to localStorage');
+    } catch (error) {
+      console.error('Error saving data to localStorage:', error);
+    }
   }
 
   private generateId() {
@@ -132,17 +162,22 @@ class BrowserDatabase {
     
     data.profiles.push(profile);
     this.saveData(data);
+    console.log('Profile created:', profile);
     return profile;
   }
 
   async getProfile(id: string): Promise<Profile | null> {
     const data = this.getData();
-    return data.profiles.find((p: Profile) => p.id === id) || null;
+    const profile = data.profiles.find((p: Profile) => p.id === id) || null;
+    console.log('Getting profile by ID:', id, profile);
+    return profile;
   }
 
   async getProfileByEmail(email: string): Promise<Profile | null> {
     const data = this.getData();
-    return data.profiles.find((p: Profile) => p.email === email) || null;
+    const profile = data.profiles.find((p: Profile) => p.email === email) || null;
+    console.log('Getting profile by email:', email, profile);
+    return profile;
   }
 
   async updateProfile(id: string, updates: Partial<Profile>): Promise<Profile | null> {
@@ -158,6 +193,7 @@ class BrowserDatabase {
     };
     
     this.saveData(data);
+    console.log('Profile updated:', data.profiles[index]);
     return data.profiles[index];
   }
 
@@ -169,6 +205,7 @@ class BrowserDatabase {
     
     data.profiles.splice(index, 1);
     this.saveData(data);
+    console.log('Profile deleted:', id);
     return true;
   }
 
@@ -184,17 +221,21 @@ class BrowserDatabase {
     
     data.vehicles.push(vehicle);
     this.saveData(data);
+    console.log('Vehicle created:', vehicle);
     return vehicle;
   }
 
   async getVehicles(): Promise<Vehicle[]> {
     const data = this.getData();
+    console.log('Getting all vehicles:', data.vehicles);
     return data.vehicles;
   }
 
   async getVehiclesByDriver(driverId: string): Promise<Vehicle[]> {
     const data = this.getData();
-    return data.vehicles.filter((v: Vehicle) => v.driverId === driverId);
+    const vehicles = data.vehicles.filter((v: Vehicle) => v.driverId === driverId);
+    console.log('Getting vehicles by driver:', driverId, vehicles);
+    return vehicles;
   }
 
   async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<Vehicle | null> {
@@ -210,6 +251,7 @@ class BrowserDatabase {
     };
     
     this.saveData(data);
+    console.log('Vehicle updated:', data.vehicles[index]);
     return data.vehicles[index];
   }
 
@@ -226,6 +268,7 @@ class BrowserDatabase {
     data.trips = data.trips.filter((t: Trip) => t.vehicleId !== id);
     
     this.saveData(data);
+    console.log('Vehicle deleted:', id);
     return true;
   }
 
@@ -241,17 +284,21 @@ class BrowserDatabase {
     
     data.trips.push(trip);
     this.saveData(data);
+    console.log('Trip created:', trip);
     return trip;
   }
 
   async getTrips(): Promise<Trip[]> {
     const data = this.getData();
+    console.log('Getting all trips:', data.trips);
     return data.trips;
   }
 
   async getTripsByDriver(driverId: string): Promise<Trip[]> {
     const data = this.getData();
-    return data.trips.filter((t: Trip) => t.driverId === driverId);
+    const trips = data.trips.filter((t: Trip) => t.driverId === driverId);
+    console.log('Getting trips by driver:', driverId, trips);
+    return trips;
   }
 
   async updateTrip(id: string, updates: Partial<Trip>): Promise<Trip | null> {
@@ -267,6 +314,7 @@ class BrowserDatabase {
     };
     
     this.saveData(data);
+    console.log('Trip updated:', data.trips[index]);
     return data.trips[index];
   }
 
@@ -283,6 +331,7 @@ class BrowserDatabase {
     data.bookings = data.bookings.filter((b: Booking) => b.tripId !== id);
     
     this.saveData(data);
+    console.log('Trip deleted:', id);
     return true;
   }
 
@@ -298,21 +347,27 @@ class BrowserDatabase {
     
     data.bookings.push(booking);
     this.saveData(data);
+    console.log('Booking created:', booking);
     return booking;
   }
 
   async getBookingsByPassenger(passengerId: string): Promise<Booking[]> {
     const data = this.getData();
-    return data.bookings.filter((b: Booking) => b.passengerId === passengerId);
+    const bookings = data.bookings.filter((b: Booking) => b.passengerId === passengerId);
+    console.log('Getting bookings by passenger:', passengerId, bookings);
+    return bookings;
   }
 
   async getBookingsByDriver(driverId: string): Promise<Booking[]> {
     const data = this.getData();
-    return data.bookings.filter((b: Booking) => b.driverId === driverId);
+    const bookings = data.bookings.filter((b: Booking) => b.driverId === driverId);
+    console.log('Getting bookings by driver:', driverId, bookings);
+    return bookings;
   }
 
   async getAllBookings(): Promise<Booking[]> {
     const data = this.getData();
+    console.log('Getting all bookings:', data.bookings);
     return data.bookings;
   }
 
@@ -329,6 +384,7 @@ class BrowserDatabase {
     };
     
     this.saveData(data);
+    console.log('Booking updated:', data.bookings[index]);
     return data.bookings[index];
   }
 
@@ -344,16 +400,19 @@ class BrowserDatabase {
     
     data.notifications.push(notification);
     this.saveData(data);
+    console.log('Notification created:', notification);
     return notification;
   }
 
   async getNotifications(userId: string): Promise<Notification[]> {
     const data = this.getData();
-    return data.notifications
+    const notifications = data.notifications
       .filter((n: Notification) => n.userId === userId)
       .sort((a: Notification, b: Notification) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
+    console.log('Getting notifications by user:', userId, notifications);
+    return notifications;
   }
 
   async markNotificationAsRead(id: string): Promise<boolean> {
@@ -365,6 +424,7 @@ class BrowserDatabase {
     data.notifications[index].isRead = true;
     data.notifications[index].updatedAt = this.getCurrentTimestamp();
     this.saveData(data);
+    console.log('Notification marked as read:', id);
     return true;
   }
 
@@ -373,15 +433,17 @@ class BrowserDatabase {
     const data = this.getData();
     const existingIndex = data.systemSettings.findIndex((s: SystemSetting) => s.key === key);
     
+    let setting: SystemSetting;
     if (existingIndex !== -1) {
-      data.systemSettings[existingIndex] = {
+      setting = {
         ...data.systemSettings[existingIndex],
         value,
         description,
         updatedAt: this.getCurrentTimestamp()
       };
+      data.systemSettings[existingIndex] = setting;
     } else {
-      const setting: SystemSetting = {
+      setting = {
         id: this.generateId(),
         key,
         value,
@@ -393,17 +455,21 @@ class BrowserDatabase {
     }
     
     this.saveData(data);
-    return data.systemSettings[existingIndex !== -1 ? existingIndex : data.systemSettings.length - 1];
+    console.log('System setting updated:', setting);
+    return setting;
   }
 
   async getSystemSetting(key: string): Promise<SystemSetting | null> {
     const data = this.getData();
-    return data.systemSettings.find((s: SystemSetting) => s.key === key) || null;
+    const setting = data.systemSettings.find((s: SystemSetting) => s.key === key) || null;
+    console.log('Getting system setting:', key, setting);
+    return setting;
   }
 
   // Initialize default data
   async initializeDefaultData(): Promise<void> {
     const data = this.getData();
+    console.log('Initializing default data with existing data:', data);
     
     // Initialize system settings if not exists
     if (data.systemSettings.length === 0) {
@@ -411,7 +477,7 @@ class BrowserDatabase {
       await this.updateSystemSetting('app_version', '1.0.0', 'إصدار التطبيق');
       await this.updateSystemSetting('maintenance_mode', 'false', 'وضع الصيانة');
       // By default, do NOT seed demo data unless explicitly enabled from settings
-      await this.updateSystemSetting('seed_demo_data', 'false', 'تفعيل إنشاء بيانات تجريبية تلقائياً');
+      await this.updateSystemSetting('seed_demo_data', 'false', 'تفعيل إنشاء datos تجريبية تلقائياً');
     }
     
     // Respect demo seeding flag
@@ -431,6 +497,7 @@ class BrowserDatabase {
         commune: 'الجزائر الوسطى',
         address: 'شارع ديدوش مراد، الجزائر',
         isVerified: true,
+        isDemo: true, // Mark as demo account
       });
 
       const passengerProfile = await this.createProfile({
@@ -444,6 +511,7 @@ class BrowserDatabase {
         commune: 'الجزائر الوسطى',
         address: 'حي القبة، الجزائر',
         isVerified: true,
+        isDemo: true, // Mark as demo account
       });
 
       const adminProfile = await this.createProfile({
@@ -457,6 +525,7 @@ class BrowserDatabase {
         commune: 'الجزائر الوسطى',
         address: 'مقر الإدارة، الجزائر',
         isVerified: true,
+        isDemo: true, // Mark as demo account
       });
 
       // Create test vehicle for driver
@@ -530,11 +599,15 @@ class BrowserDatabase {
         status: 'scheduled',
       });
     }
+    
+    // Log data to verify it's being saved
+    console.log('Database initialized with data:', this.getData());
   }
 
   // Clear all data (for testing)
   async clearAllData(): Promise<void> {
     localStorage.removeItem(this.storageKey);
+    console.log('All data cleared from localStorage');
   }
 
   // Reset to default data (reinitialize with fresh data)

@@ -21,7 +21,8 @@ import {
   AlertCircle,
   CheckCircle,
   Upload,
-  Download
+  Download,
+  DollarSign
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 

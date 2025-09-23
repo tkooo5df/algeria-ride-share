@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, MapPin, Search, ArrowUpDown, Users, Sparkles } from "lucide-react";
+import { Clock, MapPin, Search, ArrowUpDown, Users, Sparkles, Calendar } from "lucide-react";
 import heroImage from "@/assets/hero-taxi.jpg";
 import { wilayas, popularWilayas } from "@/data/wilayas";
 
@@ -16,9 +16,15 @@ const HeroSection = () => {
     toCommune: "",
     date: "",
     time: "",
-    passengers: "",
+    passengers: "1",
     specialRequests: ""
   });
+
+  // Always keep date updated to today (default like booking platforms)
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setSearchForm(prev => ({ ...prev, date: today }));
+  }, []);
 
   const swapLocations = () => {
     setSearchForm(prev => ({
@@ -31,15 +37,22 @@ const HeroSection = () => {
   };
 
   const handleSearch = () => {
-    if (searchForm.fromWilaya && searchForm.toWilaya && searchForm.date) {
+    if (searchForm.fromWilaya && searchForm.toWilaya) {
+      // Get wilaya names from codes
+      const fromWilayaName = wilayas.find(w => w.code === searchForm.fromWilaya)?.name || searchForm.fromWilaya;
+      const toWilayaName = wilayas.find(w => w.code === searchForm.toWilaya)?.name || searchForm.toWilaya;
+      
+      const dateToUse = searchForm.date && searchForm.date.length === 10
+        ? searchForm.date
+        : new Date().toISOString().split('T')[0];
+        
       const searchParams = new URLSearchParams({
-        pickup: searchForm.fromWilaya,
-        destination: searchForm.toWilaya,
-        date: searchForm.date,
-        time: searchForm.time || "08:00",
-        passengers: searchForm.passengers || "1"
-      });
-      window.location.href = `/best-offers?${searchParams.toString()}`;
+        pickup: fromWilayaName,
+        destination: toWilayaName,
+        date: dateToUse,
+        passengers: searchForm.passengers
+      } as any);
+      window.location.href = `/ride-search?${searchParams.toString()}`;
     }
   };
 
@@ -224,8 +237,8 @@ const HeroSection = () => {
                     </div>
                   </div>
 
-                  {/* Date, Time and Passengers */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Date and Passengers */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-gray-700">التاريخ</Label>
                       <div className="relative">
@@ -236,20 +249,7 @@ const HeroSection = () => {
                           className="h-12 border-2 border-gray-200 hover:border-primary/50 focus:border-primary transition-colors rounded-xl pl-12"
                           min={new Date().toISOString().split('T')[0]}
                         />
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">الوقت</Label>
-                      <div className="relative">
-                        <Input
-                          type="time"
-                          value={searchForm.time}
-                          onChange={(e) => setSearchForm(prev => ({ ...prev, time: e.target.value }))}
-                          className="h-12 border-2 border-gray-200 hover:border-primary/50 focus:border-primary transition-colors rounded-xl pl-12"
-                        />
-                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer" onClick={() => (document.querySelector('input[type="date"]') as HTMLInputElement)?.focus()} />
                       </div>
                     </div>
                     

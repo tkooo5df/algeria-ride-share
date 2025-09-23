@@ -27,17 +27,22 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { NotificationService } from "@/integrations/database/notificationService";
+import { useDatabase } from "@/hooks/useDatabase";
+import { BrowserDatabaseService } from "@/integrations/database/browserServices";
 
 const BookingForm = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { getDatabaseService } = useDatabase();
   
   const pickup = searchParams.get("pickup") || "";
   const destination = searchParams.get("destination") || "";
   const driverName = searchParams.get("driverName") || "";
   const driverCar = searchParams.get("driverCar") || "";
   const driverId = searchParams.get("driverId") || "";
+  const tripId = searchParams.get("tripId") || "";
   const price = searchParams.get("price") || "2500";
   const date = searchParams.get("date") || "";
   const time = searchParams.get("time") || "";
@@ -83,42 +88,6 @@ const BookingForm = () => {
     return true;
   };
 
-  const createNotificationForAdmins = async (bookingId: string) => {
-    try {
-      // Get all admin users
-      const { data: adminProfiles, error: adminError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin');
-
-      if (adminError) {
-        console.error('Error fetching admin profiles:', adminError);
-        return;
-      }
-
-      // Create notifications for all admins
-      const notifications = adminProfiles?.map(admin => ({
-        user_id: admin.id,
-        type: 'booking' as const,
-        title: 'حجز جديد',
-        message: `حجز جديد من ${formData.firstName} ${formData.lastName} من ${pickup} إلى ${destination}`,
-        related_id: bookingId,
-        is_read: false
-      })) || [];
-
-      if (notifications.length > 0) {
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert(notifications);
-
-        if (notificationError) {
-          console.error('Error creating notifications:', notificationError);
-        }
-      }
-    } catch (error) {
-      console.error('Error in createNotificationForAdmins:', error);
-    }
-  };
   const handleConfirmBooking = async () => {
     setError(null);
     
@@ -134,41 +103,48 @@ const BookingForm = () => {
     setLoading(true);
 
     try {
-      // For now, we'll create bookings without driver_id since the mock driver IDs don't exist in auth.users
-      // In a real implementation, you would fetch actual driver IDs from the profiles table
-      const { data: bookingData, error } = await supabase.from("bookings").insert([
-        {
-          pickup_location: pickup,
-          destination_location: destination,
-          rider_id: user.id,
-          // driver_id: driverId, // Commented out to avoid foreign key constraint error
-          total_amount: parseFloat(price),
-          status: "pending",
-          seats_booked: parseInt(passengers),
-          payment_method: formData.paymentMethod === "cash" ? "cod" : "baridimob",
-          special_requests: formData.specialRequests
-        },
-      ]).select('id').single();
+      const db = getDatabaseService();
+      
+      // Create booking with enhanced notification service
+      const booking = await db.createBooking({
+        pickupLocation: pickup,
+        destinationLocation: destination,
+        passengerId: user.id,
+        driverId: driverId,
+        tripId: tripId || '1', // Fallback if no tripId provided
+        seatsBooked: parseInt(passengers),
+        totalAmount: parseFloat(price),
+        paymentMethod: formData.paymentMethod === "cash" ? "cod" : "bpm" as 'cod' | 'bpm',
+        notes: `${formData.firstName} ${formData.lastName} - ${formData.phone}`,
+        pickupTime: time || '08:00',
+        specialRequests: formData.specialRequests,
+        status: 'pending'
+      });
 
-      if (error) {
-        setError("حدث خطأ أثناء إنشاء الحجز: " + error.message);
-      } else {
-        // Create notification for admins
-        if (bookingData?.id) {
-          await createNotificationForAdmins(bookingData.id);
-        }
+      // Send comprehensive notifications using enhanced service
+      await NotificationService.notifyBookingCreated({
+        bookingId: Number(booking.id),
+        passengerId: user.id,
+        driverId: driverId,
+        tripId: tripId || '1',
+        pickupLocation: pickup,
+        destinationLocation: destination,
+        seatsBooked: parseInt(passengers),
+        totalAmount: parseFloat(price),
+        paymentMethod: formData.paymentMethod === "cash" ? "cod" : "bpm"
+      });
 
-        toast({
-          title: "تم تأكيد الحجز بنجاح!",
-          description: "سيتم التواصل معك قريباً لتأكيد التفاصيل",
-        });
-        
-        // Redirect to dashboard after successful booking
-        setTimeout(() => {
-          navigate("/passenger/dashboard");
-        }, 2000);
-      }
+      toast({
+        title: "تم تأكيد الحجز بنجاح!",
+        description: "تم إرسال إشعارات للسائق والإدارة. سيتم التواصل معك قريباً",
+      });
+      
+      // Redirect to dashboard after successful booking
+      setTimeout(() => {
+        navigate("/passenger/dashboard");
+      }, 2000);
     } catch (error: any) {
+      console.error('Error creating booking:', error);
       setError("حدث خطأ غير متوقع: " + error.message);
     } finally {
       setLoading(false);

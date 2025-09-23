@@ -21,6 +21,7 @@ import {
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useDatabase } from '@/hooks/useDatabase';
+import { BrowserDatabaseService } from '@/integrations/database/browserServices';
 
 const DemoData = () => {
   const { getDatabaseService, isInitialized } = useDatabase();
@@ -33,16 +34,17 @@ const DemoData = () => {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const targetDate = '2025-09-20';
 
   const loadData = async () => {
     try {
-      const db = getDatabaseService();
+      // Read directly from browser database service in local mode
       const [profiles, vehicles, trips, bookings, notifications] = await Promise.all([
-        db.getSystemSettings(), // This will get profiles in local mode
-        db.getVehicles(),
-        db.getTrips(),
-        db.getBookings(),
-        db.getNotifications('admin-1'), // Get admin notifications
+        BrowserDatabaseService.getAllProfiles(),
+        BrowserDatabaseService.getAllVehicles(),
+        BrowserDatabaseService.getTrips(),
+        BrowserDatabaseService.getAllBookings(),
+        BrowserDatabaseService.getNotifications('admin-1'),
       ]);
 
       setData({
@@ -69,6 +71,74 @@ const DemoData = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
+  };
+
+  const handleAddFiveTripsForDate = async () => {
+    try {
+      const db = getDatabaseService();
+      // Find a driver
+      let profiles = await BrowserDatabaseService.getAllProfiles();
+      let driver = profiles.find((p: any) => p.role === 'driver');
+      if (!driver) {
+        // Create a driver profile if none exists
+        driver = await BrowserDatabaseService.createProfile({
+          email: 'driver@test.com',
+          firstName: 'أحمد',
+          lastName: 'السائق',
+          fullName: 'أحمد السائق',
+          phone: '+213 555 123 456',
+          role: 'driver',
+          wilaya: 'الجزائر',
+          commune: 'الجزائر الوسطى',
+          address: 'شارع ديدوش مراد، الجزائر',
+          isVerified: true,
+        } as any);
+        // Refresh profiles list
+        profiles = await BrowserDatabaseService.getAllProfiles();
+      }
+
+      // Ensure a vehicle exists for the driver
+      let vehicles = await BrowserDatabaseService.getVehiclesByDriver(driver.id);
+      if (!vehicles || vehicles.length === 0) {
+        await BrowserDatabaseService.createVehicle({
+          driverId: driver.id,
+          make: 'Renault',
+          model: 'Symbol',
+          year: 2021,
+          color: 'أبيض',
+          licensePlate: 'AA-123-16',
+          seats: 4,
+        });
+        vehicles = await BrowserDatabaseService.getVehiclesByDriver(driver.id);
+      }
+      const vehicleId = vehicles[0].id;
+
+      const tripsPayload = [
+        { fromWilayaId: 16, toWilayaId: 31, departureTime: '08:00', pricePerSeat: 1500, totalSeats: 4, description: 'الجزائر → وهران' },
+        { fromWilayaId: 31, toWilayaId: 16, departureTime: '10:30', pricePerSeat: 1600, totalSeats: 4, description: 'وهران → الجزائر' },
+        { fromWilayaId: 16, toWilayaId: 35, departureTime: '13:00', pricePerSeat: 900, totalSeats: 4, description: 'الجزائر → تيزي وزو' },
+        { fromWilayaId: 6, toWilayaId: 9, departureTime: '15:30', pricePerSeat: 1200, totalSeats: 4, description: 'بجاية → البويرة' },
+        { fromWilayaId: 9, toWilayaId: 6, departureTime: '18:00', pricePerSeat: 1200, totalSeats: 4, description: 'البويرة → بجاية' },
+      ];
+
+      for (const t of tripsPayload) {
+        await BrowserDatabaseService.createTrip({
+          driverId: driver.id,
+          vehicleId,
+          fromWilayaId: t.fromWilayaId,
+          toWilayaId: t.toWilayaId,
+          departureDate: targetDate,
+          departureTime: t.departureTime,
+          pricePerSeat: t.pricePerSeat,
+          totalSeats: t.totalSeats,
+          description: t.description,
+        });
+      }
+
+      await loadData();
+    } catch (e) {
+      console.error('Error creating demo trips:', e);
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -130,6 +200,20 @@ const DemoData = () => {
             تحديث البيانات
           </Button>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>إضافة رحلات يدوية</CardTitle>
+            <CardDescription>
+              إنشاء 5 رحلات بتاريخ {targetDate} كأنها مضافة من حساب السائق
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleAddFiveTripsForDate}>
+              إضافة 5 رحلات ليوم {targetDate}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

@@ -58,6 +58,7 @@ export const getWilayaByName = (name: string) => {
 };
 
 export const popularWilayas = [
+  "47", // غرداية
   "16", // الجزائر
   "31", // وهران
   "25", // قسنطينة

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ interface User {
   status: string;
   created_at: string;
   last_sign_in: string;
+  isDemo?: boolean;
   profile?: {
     first_name?: string;
     last_name?: string;
@@ -45,10 +46,17 @@ interface UserManagementProps {
 }
 
 const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
+  console.log('DEBUG: UserManagement received users:', users); // Add debug logging
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterDemo, setFilterDemo] = useState("all"); // This is correct
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Add effect to log when filters change
+  useEffect(() => {
+    console.log('DEBUG: Filters changed - Role:', filterRole, 'Status:', filterStatus, 'Demo:', filterDemo);
+  }, [filterRole, filterStatus, filterDemo]);
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -75,8 +83,19 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
                          user.profile?.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === "all" || user.role === filterRole;
     const matchesStatus = filterStatus === "all" || user.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
+    const matchesDemo = filterDemo === "all" || 
+                       (filterDemo === "demo" && user.isDemo) || 
+                       (filterDemo === "real" && !user.isDemo);
+    
+    console.log('DEBUG: User filter check - User:', user.email, 'Search:', matchesSearch, 'Role:', matchesRole, 'Status:', matchesStatus, 'Demo:', matchesDemo);
+    return matchesSearch && matchesRole && matchesStatus && matchesDemo;
   });
+
+  // Add effect to log filtered users
+  useEffect(() => {
+    console.log('DEBUG: Filtered users count:', filteredUsers.length);
+    console.log('DEBUG: Filtered users:', filteredUsers);
+  }, [filteredUsers]);
 
   return (
     <div className="space-y-6">
@@ -136,6 +155,18 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
                 <SelectItem value="banned">محظور</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Add Demo Filter */}
+            <Select value={filterDemo} onValueChange={setFilterDemo}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="نوع الحساب" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">جميع الحسابات</SelectItem>
+                <SelectItem value="real">الحسابات الحقيقية</SelectItem>
+                <SelectItem value="demo">الحسابات التجريبية</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -165,6 +196,12 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
                         </h3>
                         <Badge className={roleInfo.color}>{roleInfo.label}</Badge>
                         <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+                        {/* Show demo badge if it's a demo account */}
+                        {user.isDemo && (
+                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                            تجريبي
+                          </Badge>
+                        )}
                         {user.role === 'driver' && user.status === 'active' && (
                           <Shield className="h-4 w-4 text-green-600" />
                         )}
@@ -231,6 +268,12 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
                                   <Badge className={getStatusBadge(selectedUser.status).color}>
                                     {getStatusBadge(selectedUser.status).label}
                                   </Badge>
+                                  {/* Show demo badge in details view as well */}
+                                  {selectedUser.isDemo && (
+                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                      تجريبي
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -250,6 +293,10 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
                                   <div>تاريخ التسجيل: {selectedUser.created_at}</div>
                                   <div>آخر دخول: {selectedUser.last_sign_in}</div>
                                   <div>الحالة: {getStatusBadge(selectedUser.status).label}</div>
+                                  {/* Show if it's a demo account */}
+                                  {selectedUser.isDemo && (
+                                    <div>نوع الحساب: تجريبي</div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -309,6 +356,14 @@ const UserManagement = ({ users, onUserAction }: UserManagementProps) => {
             <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">لا توجد نتائج</h3>
             <p className="text-muted-foreground">جرب تغيير معايير البحث أو التصفية</p>
+            {/* Add debug info */}
+            <div className="mt-4 text-left bg-muted p-4 rounded">
+              <h4 className="font-semibold">معلومات التصحيح:</h4>
+              <p>إجمالي المستخدمين المتلقاة: {users.length}</p>
+              <p>الحسابات الحقيقية: {users.filter(u => !u.isDemo).length}</p>
+              <p>الحسابات التجريبية: {users.filter(u => u.isDemo).length}</p>
+              <p>الفلتر المحدد: {filterDemo === 'all' ? 'جميع الحسابات' : filterDemo === 'real' ? 'الحسابات الحقيقية' : 'الحسابات التجريبية'}</p>
+            </div>
           </CardContent>
         </Card>
       )}
