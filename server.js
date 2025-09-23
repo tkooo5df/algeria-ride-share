@@ -1,11 +1,8 @@
-#!/usr/bin/env node
-
 const express = require('express');
 const path = require('path');
-const { createServer } = require('vite');
 
 const app = express();
-const port = process.env.PORT || 4173;
+const port = process.env.PORT || 3000;
 
 // Serve static files from the dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
@@ -16,5 +13,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server running on http://0.0.0.0:${port}`);
 });
