@@ -22,5 +22,5 @@ RUN npm prune --production
 # Expose port (Railway will set PORT env var)
 EXPOSE 3000
 
-# Start the server directly
-CMD ["node", "server.js"]
+# Start the minimal diagnostic server
+CMD ["node", "minimal-server.js"]
