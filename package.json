@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
-    "start": "node minimal-server.js",
-    "serve": "node server.js",
+    "start": "node minimal-server.cjs",
+    "serve": "node server.cjs",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },

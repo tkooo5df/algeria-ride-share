@@ -8,18 +8,18 @@ echo "📁 Directory contents:"
 ls -la
 
 echo "\n🔍 Checking for server files:"
-if [ -f "minimal-server.js" ]; then
-  echo "✅ minimal-server.js found"
-  echo "📄 File size: $(wc -c < minimal-server.js) bytes"
+if [ -f "minimal-server.cjs" ]; then
+  echo "✅ minimal-server.cjs found"
+  echo "📄 File size: $(wc -c < minimal-server.cjs) bytes"
 else
-  echo "❌ minimal-server.js NOT found"
+  echo "❌ minimal-server.cjs NOT found"
 fi
 
-if [ -f "server.js" ]; then
-  echo "✅ server.js found"
-  echo "📄 File size: $(wc -c < server.js) bytes"
+if [ -f "server.cjs" ]; then
+  echo "✅ server.cjs found"
+  echo "📄 File size: $(wc -c < server.cjs) bytes"
 else
-  echo "❌ server.js NOT found"
+  echo "❌ server.cjs NOT found"
 fi
 
 echo "\n🔍 Checking for dist directory:"
@@ -42,4 +42,4 @@ env | grep -i port || echo "No PORT variables found"
 env | grep -i railway || echo "No RAILWAY variables found"
 
 echo "\n🚀 Attempting to start minimal server..."
-timeout 30 node minimal-server.js || echo "Server process ended or timed out"
+timeout 30 node minimal-server.cjs || echo "Server process ended or timed out"

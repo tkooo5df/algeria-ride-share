@@ -1,7 +1,12 @@
 // Minimal test server to diagnose Railway deployment issues
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Create __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Log startup information
 console.log('🚀 Starting minimal diagnostic server...');
