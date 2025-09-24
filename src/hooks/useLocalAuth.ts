@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useDatabase } from './useDatabase';
-import { BrowserDatabaseService } from '@/integrations/database/browserServices';
+import { useMemo } from 'react';
+import { useAuth } from './useAuth';
 import { toast } from '@/hooks/use-toast';
 
 interface LocalUser {
@@ -15,258 +14,102 @@ interface LocalUser {
   commune: string;
   address: string;
   isVerified: boolean;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export const useLocalAuth = () => {
-  const { getDatabaseService, isInitialized } = useDatabase();
-  const [user, setUser] = useState<LocalUser | null>(null);
-  const [loading, setLoading] = useState(false);
+const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?: string): LocalUser | null => {
+  if (!profile && !fallbackId) {
+    return null;
+  }
 
-  // Test accounts
-  const testAccounts = {
-    driver: {
-      email: 'driver@test.com',
-      password: 'driver123',
-      role: 'driver' as const
-    },
-    passenger: {
-      email: 'passenger@test.com',
-      password: 'passenger123',
-      role: 'passenger' as const
-    },
-    admin: {
-      email: 'admin@test.com',
-      password: 'admin123',
-      role: 'admin' as const
-    }
-  };
-
-  // Check if user is logged in on mount
-  useEffect(() => {
-    const checkAuth = () => {
-      const savedUser = localStorage.getItem('localUser');
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
-          console.error('Error parsing saved user:', error);
-          localStorage.removeItem('localUser');
-        }
-      }
-    };
-
-    if (isInitialized) {
-      checkAuth();
-    }
-  }, [isInitialized]);
-
-  const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      // Check if it's a test account
-      const testAccount = Object.values(testAccounts).find(account => 
-        account.email === email && account.password === password
-      );
-
-      if (testAccount) {
-        // Create or get test account profile
-        let profile = await BrowserDatabaseService.getProfileByEmail(email);
-        
-        if (!profile) {
-          // Create test account profile
-          const profileData = {
-            id: `test-${testAccount.role}-${Date.now()}`,
-            email: email,
-            firstName: testAccount.role === 'driver' ? 'أحمد' : testAccount.role === 'passenger' ? 'فاطمة' : 'محمد',
-            lastName: testAccount.role === 'driver' ? 'السائق' : testAccount.role === 'passenger' ? 'الراكبة' : 'المدير',
-            fullName: testAccount.role === 'driver' ? 'أحمد السائق' : testAccount.role === 'passenger' ? 'فاطمة الراكبة' : 'محمد المدير',
-            phone: testAccount.role === 'admin' ? '+213 555 999 888' : '+213 555 123 456',
-            role: testAccount.role,
-            wilaya: 'الجزائر',
-            commune: 'الجزائر الوسطى',
-            address: 'شارع ديدوش مراد، الجزائر',
-            isVerified: true,
-          };
-
-          profile = await BrowserDatabaseService.createProfile(profileData);
-        }
-
-        // Convert to LocalUser format
-        const localUser: LocalUser = {
-          id: profile.id,
-          email: profile.email,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          fullName: profile.fullName,
-          phone: profile.phone,
-          role: profile.role as 'driver' | 'passenger' | 'admin',
-          wilaya: profile.wilaya,
-          commune: profile.commune,
-          address: profile.address,
-          isVerified: profile.isVerified,
-          avatarUrl: profile.avatarUrl,
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
-        };
-
-        setUser(localUser);
-        localStorage.setItem('localUser', JSON.stringify(localUser));
-
-        toast({
-          title: "تم تسجيل الدخول بنجاح",
-          description: `مرحباً ${localUser.fullName}!`,
-        });
-
-        return { user: localUser, error: null };
-      } else {
-        // Try to find user in database
-        const profile = await BrowserDatabaseService.getProfileByEmail(email);
-        
-        if (profile) {
-          // For now, we'll just check if the profile exists
-          // In a real app, you'd verify the password hash
-          const localUser: LocalUser = {
-            id: profile.id,
-            email: profile.email,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            fullName: profile.fullName,
-            phone: profile.phone,
-            role: profile.role as 'driver' | 'passenger' | 'admin',
-            wilaya: profile.wilaya,
-            commune: profile.commune,
-            address: profile.address,
-            isVerified: profile.isVerified,
-            avatarUrl: profile.avatarUrl,
-            createdAt: profile.createdAt,
-            updatedAt: profile.updatedAt,
-          };
-
-          setUser(localUser);
-          localStorage.setItem('localUser', JSON.stringify(localUser));
-
-          toast({
-            title: "تم تسجيل الدخول بنجاح",
-            description: `مرحباً ${localUser.fullName}!`,
-          });
-
-          return { user: localUser, error: null };
-        } else {
-          throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة');
-        }
-      }
-    } catch (error: any) {
-      console.error('Error signing in:', error);
-      toast({
-        title: "خطأ في تسجيل الدخول",
-        description: error.message || 'حدث خطأ غير متوقع',
-        variant: "destructive"
-      });
-      return { user: null, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signOut = async () => {
-    setUser(null);
-    localStorage.removeItem('localUser');
-    toast({
-      title: "تم تسجيل الخروج",
-      description: "تم تسجيل الخروج بنجاح",
-    });
-  };
-
-  const updateProfile = async (updates: Partial<LocalUser>) => {
-    if (!user) return { error: 'No user logged in' };
-    
-    try {
-      const updatedProfile = await BrowserDatabaseService.updateProfile(user.id, updates);
-      
-      if (updatedProfile) {
-        const updatedUser = { ...user, ...updates };
-        setUser(updatedUser);
-        localStorage.setItem('localUser', JSON.stringify(updatedUser));
-        
-        toast({
-          title: "تم تحديث الملف الشخصي",
-          description: "تم حفظ التغييرات بنجاح",
-        });
-        
-        return { user: updatedUser, error: null };
-      } else {
-        throw new Error('فشل في تحديث الملف الشخصي');
-      }
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: "خطأ في التحديث",
-        description: error.message || 'حدث خطأ غير متوقع',
-        variant: "destructive"
-      });
-      return { user: null, error: error.message };
-    }
-  };
+  const id = profile?.id ?? fallbackId ?? '';
+  const email = profile?.email ?? fallbackEmail ?? '';
+  const firstName = profile?.first_name ?? profile?.firstName ?? '';
+  const lastName = profile?.last_name ?? profile?.lastName ?? '';
+  const computedName = `${firstName} ${lastName}`.trim();
+  const fullName = profile?.full_name ?? profile?.fullName ?? (computedName || email);
 
   return {
-    user,
-    loading,
-    signIn,
-    signOut,
-    updateProfile,
-    testAccounts,
-    // Quick login without password: ensures Local DB mode and signs in as a role
-    loginAs: async (role: 'admin' | 'driver' | 'passenger') => {
-      try {
-        // Force Local DB mode for the app
-        localStorage.setItem('database_type', 'local');
+    id,
+    email,
+    firstName,
+    lastName,
+    fullName,
+    phone: profile?.phone ?? '',
+    role: (profile?.role ?? 'passenger') as 'driver' | 'passenger' | 'admin',
+    wilaya: profile?.wilaya ?? 'الجزائر',
+    commune: profile?.commune ?? 'غير محدد',
+    address: profile?.address ?? 'غير محدد',
+    isVerified: profile?.is_verified ?? false,
+    avatarUrl: profile?.avatar_url ?? null,
+    createdAt: profile?.created_at ?? new Date().toISOString(),
+    updatedAt: profile?.updated_at ?? profile?.created_at ?? new Date().toISOString(),
+  };
+};
 
-        const defaultEmail = role === 'admin' ? 'admin@test.com' : role === 'driver' ? 'driver@test.com' : 'passenger@test.com';
-        let profile = await BrowserDatabaseService.getProfileByEmail(defaultEmail);
-        if (!profile) {
-          profile = await BrowserDatabaseService.createProfile({
-            id: `user-${role}-${Date.now()}`,
-            email: defaultEmail,
-            firstName: role === 'admin' ? 'محمد' : role === 'driver' ? 'أحمد' : 'فاطمة',
-            lastName: role === 'admin' ? 'المدير' : role === 'driver' ? 'السائق' : 'الراكبة',
-            fullName: role === 'admin' ? 'محمد المدير' : role === 'driver' ? 'أحمد السائق' : 'فاطمة الراكبة',
-            phone: role === 'admin' ? '+213 555 999 888' : '+213 555 000 000',
-            role,
-            wilaya: 'الجزائر',
-            commune: 'الجزائر الوسطى',
-            address: role === 'admin' ? 'مقر الإدارة، الجزائر' : 'غير محدد',
-            isVerified: true,
-          });
+export const useLocalAuth = () => {
+  const { user: supabaseUser, profile, loading, signIn, signOut, updateProfile } = useAuth();
+
+  const localUser = useMemo(
+    () => mapProfileToLocalUser(profile, supabaseUser?.id, supabaseUser?.email ?? undefined),
+    [profile, supabaseUser?.email, supabaseUser?.id]
+  );
+
+  return {
+    user: localUser,
+    loading,
+    signIn: async (email: string, password: string) => {
+      try {
+        await signIn(email, password);
+        return { user: localUser, error: null };
+      } catch (error: any) {
+        return { user: null, error: error?.message ?? 'حدث خطأ غير متوقع' };
+      }
+    },
+    signOut: async () => {
+      await signOut();
+    },
+    updateProfile: async (updates: Partial<LocalUser>) => {
+      if (!supabaseUser) {
+        return { user: null, error: 'No user logged in' };
+      }
+
+      try {
+        const { data, error } = await updateProfile({
+          full_name: updates.fullName,
+          first_name: updates.firstName,
+          last_name: updates.lastName,
+          phone: updates.phone,
+          role: updates.role,
+          wilaya: updates.wilaya,
+          commune: updates.commune,
+          address: updates.address,
+        } as any);
+
+        if (error) {
+          throw new Error(error);
         }
 
-        const localUser: LocalUser = {
-          id: profile.id,
-          email: profile.email,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          fullName: profile.fullName,
-          phone: profile.phone || '',
-          role: profile.role as 'admin' | 'driver' | 'passenger',
-          wilaya: profile.wilaya,
-          commune: profile.commune,
-          address: profile.address,
-          isVerified: profile.isVerified,
-          avatarUrl: profile.avatarUrl,
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
-        };
-
-        setUser(localUser);
-        localStorage.setItem('localUser', JSON.stringify(localUser));
-        toast({ title: 'تم تسجيل الدخول محلياً', description: `مرحباً ${localUser.fullName}` });
-        return { user: localUser };
+        const mapped = mapProfileToLocalUser(data ?? profile, supabaseUser.id, supabaseUser.email ?? undefined);
+        return { user: mapped, error: null };
       } catch (error: any) {
-        toast({ title: 'تعذر تسجيل الدخول محلياً', description: error?.message || 'حدث خطأ', variant: 'destructive' });
-        return { user: null };
+        toast({
+          title: 'خطأ في التحديث',
+          description: error?.message ?? 'حدث خطأ غير متوقع',
+          variant: 'destructive',
+        });
+        return { user: null, error: error?.message ?? 'حدث خطأ غير متوقع' };
       }
-    }
+    },
+    testAccounts: null,
+    loginAs: async () => {
+      toast({
+        title: 'غير مدعوم في وضع Supabase',
+        description: 'تسجيل الدخول السريع متاح فقط في الوضع المحلي القديم.',
+      });
+      return { user: null };
+    },
   };
 };

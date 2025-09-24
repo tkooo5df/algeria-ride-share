@@ -6,10 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
-import { useLocalAuth } from '@/hooks/useLocalAuth';
-import { useDatabase } from '@/hooks/useDatabase';
-import { Eye, EyeOff, Mail, Lock, Chrome, AlertCircle, Database } from 'lucide-react';
-import { BrowserDatabaseService } from '@/integrations/database/browserServices';
+import { Eye, EyeOff, Mail, Lock, Chrome, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -22,8 +19,6 @@ const SignIn = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { signIn, signInWithGoogle } = useAuth();
-  const { signIn: localSignIn, testAccounts, loginAs } = useLocalAuth();
-  const { isLocal } = useDatabase();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -45,55 +40,14 @@ const SignIn = () => {
     }
 
     try {
-      // Use local auth if using local database, otherwise use Supabase
-      if (isLocal) {
-        const result = await localSignIn(email, password);
-        if (result.error) {
-          throw new Error(result.error);
-        }
-      } else {
-        await signIn(email, password);
-      }
-      
+      await signIn(email, password);
+
       toast({
         title: "تم تسجيل الدخول بنجاح",
         description: "مرحباً بك مرة أخرى!",
       });
       navigate('/');
     } catch (error: any) {
-      // Fallback: if Supabase login fails, try local login automatically
-      try {
-        if (!isLocal) {
-          let result = await localSignIn(email, password);
-          if (result.error) {
-            // If local profile doesn't exist, create one on the fly (admin if email matches)
-            const existing = await BrowserDatabaseService.getProfileByEmail(email);
-            if (!existing) {
-              const roleGuess = email.toLowerCase().includes('admin') ? 'admin' : email.toLowerCase().includes('driver') ? 'driver' : 'passenger';
-              await BrowserDatabaseService.createProfile({
-                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                email,
-                firstName: roleGuess === 'admin' ? 'مدير' : roleGuess === 'driver' ? 'أحمد' : 'فاطمة',
-                lastName: roleGuess === 'admin' ? 'النظام' : roleGuess === 'driver' ? 'السائق' : 'الراكب',
-                fullName: roleGuess === 'admin' ? 'مدير النظام' : roleGuess === 'driver' ? 'أحمد السائق' : 'فاطمة الراكبة',
-                phone: '+213 555 000 000',
-                role: roleGuess as 'admin' | 'driver' | 'passenger',
-                wilaya: 'الجزائر',
-                commune: 'الجزائر الوسطى',
-                address: 'غير محدد',
-                isVerified: true,
-              });
-              result = await localSignIn(email, password);
-            }
-          }
-          if (!result.error) {
-            toast({ title: 'تم تسجيل الدخول (محلياً)', description: 'تعذر الاتصال بـ Supabase، تم تسجيل الدخول محلياً.' });
-            navigate('/');
-            return;
-          }
-        }
-      } catch {}
-
       let errorMessage = "يرجى التحقق من بياناتك والمحاولة مرة أخرى";
       if (error?.message?.includes("Invalid login credentials")) {
         errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
@@ -222,61 +176,6 @@ const SignIn = () => {
                   {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
                 </Button>
               </form>
-
-              {/* Test Accounts Section */}
-              {isLocal && (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">حسابات تجريبية</span>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={async () => {
-                        await loginAs('driver');
-                        navigate('/dashboard');
-                      }}
-                      className="w-full justify-start"
-                    >
-                      <Database className="h-4 w-4 mr-2" />
-                      دخول سريع كسائق (محلي)
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={async () => {
-                        await loginAs('passenger');
-                        navigate('/dashboard');
-                      }}
-                      className="w-full justify-start"
-                    >
-                      <Database className="h-4 w-4 mr-2" />
-                      دخول سريع كراكب (محلي)
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={async () => {
-                        await loginAs('admin');
-                        navigate('/dashboard');
-                      }}
-                      className="w-full justify-start"
-                    >
-                      <Database className="h-4 w-4 mr-2" />
-                      دخول سريع كمدير (محلي)
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               <div className="text-center text-sm">
                 ليس لديك حساب؟{" "}
