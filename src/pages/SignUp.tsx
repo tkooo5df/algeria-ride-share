@@ -8,19 +8,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Database, Settings, ArrowRight, Check } from "lucide-react";
+import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Settings, ArrowRight, Check } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { wilayas } from "@/data/wilayas";
-import { useDatabase } from "@/hooks/useDatabase";
-import { BrowserDatabaseService } from "@/integrations/database/browserServices";
-import { useLocalAuth } from "@/hooks/useLocalAuth";
-import { toast } from "@/hooks/use-toast";
 
 const SignUp = () => {
   const navigate = useNavigate();
-  const { getDatabaseService, isLocal } = useDatabase();
-  const { signIn: localSignIn } = useLocalAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -181,176 +175,59 @@ const SignUp = () => {
 
     try {
       if (showDriverOnboarding) {
-        // Handle driver onboarding signup
         await handleDriverSignup();
         return;
       }
 
-      if (isLocal) {
-        // Use local database
-        const db = getDatabaseService();
-        
-        // Check if email already exists
-        const existingProfile = await BrowserDatabaseService.getProfileByEmail(email);
-        if (existingProfile) {
-          setError("البريد الإلكتروني مستخدم بالفعل");
-          setLoading(false);
-          return;
-        }
-
-        // Create profile in local database
-        const profileData = {
-          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          email: email,
-          firstName: firstName,
-          lastName: lastName,
-          fullName: `${firstName} ${lastName}`,
-          phone: phone || null,
-          role: role as 'driver' | 'passenger' | 'admin',
-          wilaya: wilaya || 'الجزائر',
-          commune: 'غير محدد',
-          address: 'غير محدد',
-          isVerified: true, // Auto-verify for local database
-          isDemo: false, // Explicitly mark as not demo
-        };
-
-        const newProfile = await BrowserDatabaseService.createProfile(profileData);
-        
-        if (newProfile) {
-          // Send welcome notification to new user
-          try {
-            const { NotificationService } = await import('@/integrations/database/notificationService');
-            await NotificationService.notifyWelcomeUser(newProfile.id, role);
-            
-            // Notify admins about new user registration
-            await NotificationService.notifyNewUserRegistration({
-              userId: newProfile.id,
-              userRole: role as 'driver' | 'passenger' | 'admin',
-              userName: `${firstName} ${lastName}`,
-              userEmail: email
-            });
-          } catch (notificationError) {
-            console.error('Error sending welcome notifications:', notificationError);
-          }
-          
-          setSuccess("تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.");
-          
-          // Auto sign in after successful registration
-          setTimeout(async () => {
-            try {
-              await localSignIn(email, password);
-              toast({
-                title: "تم تسجيل الدخول تلقائياً",
-                description: "مرحباً بك في DZ Taxi!",
-              });
-              // If the user is a driver, redirect to driver onboarding instead of dashboard
-              if (role === 'driver') {
-                navigate("/driver-after-signup");
-              } else {
-                navigate("/dashboard");
-              }
-            } catch (error) {
-              navigate("/auth/signin");
-            }
-          }, 2000);
-        } else {
-          setError("فشل في إنشاء الحساب");
-        }
-      } else {
-        // Use Supabase, fallback to local if it fails (e.g., 500)
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              phone: phone,
-              role: role,
-              wilaya: wilaya,
-            },
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone,
+            role,
+            wilaya,
           },
-        });
+        },
+      });
 
-        if (error) {
-          // Fallback: create local profile and auto sign in
-          const db = getDatabaseService();
-          const existing = await BrowserDatabaseService.getProfileByEmail(email);
-          if (existing) {
-            setError("هذا البريد مستخدم محلياً. يرجى تسجيل الدخول.");
-          } else {
-            const localProfile = await BrowserDatabaseService.createProfile({
-              id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              email,
-              firstName,
-              lastName,
-              fullName: `${firstName} ${lastName}`,
-              phone: phone || null,
-              role: role as 'driver' | 'passenger' | 'admin',
-              wilaya: wilaya || 'الجزائر',
-              commune: 'غير محدد',
-              address: 'غير محدد',
-              isVerified: true,
-              isDemo: false, // Explicitly mark as not demo
-            });
+      if (error) {
+        throw error;
+      }
 
-            if (localProfile) {
-              // Send welcome notification to new user (fallback)
-              try {
-                const { NotificationService } = await import('@/integrations/database/notificationService');
-                await NotificationService.notifyWelcomeUser(localProfile.id, role);
-                
-                // Notify admins about new user registration
-                await NotificationService.notifyNewUserRegistration({
-                  userId: localProfile.id,
-                  userRole: role as 'driver' | 'passenger' | 'admin',
-                  userName: `${firstName} ${lastName}`,
-                  userEmail: email
-                });
-              } catch (notificationError) {
-                console.error('Error sending welcome notifications:', notificationError);
-              }
-              
-              setSuccess("لا يمكن الاتصال بـ Supabase. تم إنشاء الحساب محلياً وتم تسجيل دخولك.");
-              try {
-                // Auto sign-in via local auth flow if available
-                // We navigate directly to dashboard; SignIn already supports local
-                // If the user is a driver, redirect to driver onboarding instead of dashboard
-                if (role === 'driver') {
-                  navigate('/driver-after-signup');
-                } else {
-                  navigate('/dashboard');
-                }
-              } catch {
-                navigate('/auth/signin');
-              }
-            } else {
-              setError("تعذر إنشاء الحساب حالياً. حاول لاحقاً.");
-            }
-          }
-        } else {
-          setSuccess("تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتفعيل الحساب.");
-          // Clear form
-          setEmail("");
-          setPassword("");
-          setConfirmPassword("");
-          setFirstName("");
-          setLastName("");
-          setPhone("");
-          setWilaya("");
-          setAcceptTerms(false);
-          
-          // Redirect after 3 seconds
-          setTimeout(() => {
-            // If the user is a driver, redirect to driver onboarding instead of signin
-            if (role === 'driver') {
-              navigate("/driver-after-signup");
-            } else {
-              navigate("/auth/signin");
-            }
-          }, 3000);
+      const createdUser = data.user;
+
+      if (createdUser) {
+        try {
+          const { NotificationService } = await import('@/integrations/database/notificationService');
+          await NotificationService.notifyWelcomeUser(createdUser.id, role as 'driver' | 'passenger' | 'admin');
+          await NotificationService.notifyNewUserRegistration({
+            userId: createdUser.id,
+            userRole: role as 'driver' | 'passenger' | 'admin',
+            userName: `${firstName} ${lastName}`,
+            userEmail: email,
+          });
+        } catch (notificationError) {
+          console.error('Error sending welcome notifications:', notificationError);
         }
       }
+
+      setSuccess("تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتفعيل الحساب.");
+
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setFirstName("");
+      setLastName("");
+      setPhone("");
+      setWilaya("");
+      setAcceptTerms(false);
+
+      setTimeout(() => {
+        navigate('/auth/signin');
+      }, 3000);
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -360,91 +237,57 @@ const SignUp = () => {
 
   const handleDriverSignup = async () => {
     try {
-      // First create the user account
-      const db = getDatabaseService();
-      
-      // Check if email already exists
-      const existingProfile = await BrowserDatabaseService.getProfileByEmail(driverFormData.email);
-      if (existingProfile) {
-        setError("البريد الإلكتروني مستخدم بالفعل");
-        setLoading(false);
-        return;
+      const { data, error } = await supabase.auth.signUp({
+        email: driverFormData.email,
+        password,
+        options: {
+          data: {
+            first_name: driverFormData.firstName,
+            last_name: driverFormData.lastName,
+            phone: driverFormData.phone,
+            role: 'driver',
+            wilaya: driverFormData.wilaya,
+            commune: driverFormData.commune,
+            address: driverFormData.address,
+            vehicle_brand: driverFormData.vehicleBrand,
+            vehicle_model: driverFormData.vehicleModel,
+            vehicle_year: driverFormData.vehicleYear,
+            vehicle_color: driverFormData.vehicleColor,
+            vehicle_plate: driverFormData.plateNumber,
+            vehicle_seats: driverFormData.seats,
+            vehicle_category: driverFormData.category,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
       }
 
-      // Create profile in local database
-      const profileData = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        email: driverFormData.email,
-        firstName: driverFormData.firstName,
-        lastName: driverFormData.lastName,
-        fullName: `${driverFormData.firstName} ${driverFormData.lastName}`,
-        phone: driverFormData.phone || null,
-        role: 'driver' as 'driver',
-        wilaya: driverFormData.wilaya || 'الجزائر',
-        commune: driverFormData.commune || 'غير محدد',
-        address: driverFormData.address || 'غير محدد',
-        isVerified: true, // Auto-verify for local database
-        isDemo: false, // Explicitly mark as not demo
-      };
+      const createdUser = data.user;
 
-      const newProfile = await BrowserDatabaseService.createProfile(profileData);
-      
-      if (newProfile) {
-        // Create vehicle for the driver
-        const vehicle = await BrowserDatabaseService.createVehicle({
-          driverId: newProfile.id,
-          make: driverFormData.vehicleBrand,
-          model: driverFormData.vehicleModel,
-          year: parseInt(driverFormData.vehicleYear),
-          color: driverFormData.vehicleColor,
-          licensePlate: driverFormData.plateNumber,
-          seats: parseInt(driverFormData.seats)
-        });
-
-        // Send welcome notification to new user
+      if (createdUser) {
         try {
           const { NotificationService } = await import('@/integrations/database/notificationService');
-          await NotificationService.notifyWelcomeUser(newProfile.id, 'driver');
-          
-          // Notify admins about new user registration
+          await NotificationService.notifyWelcomeUser(createdUser.id, 'driver');
           await NotificationService.notifyNewUserRegistration({
-            userId: newProfile.id,
+            userId: createdUser.id,
             userRole: 'driver',
             userName: `${driverFormData.firstName} ${driverFormData.lastName}`,
-            userEmail: driverFormData.email
-          });
-          
-          // Create a notification for the driver
-          await BrowserDatabaseService.createNotification({
-            userId: newProfile.id,
-            title: "مرحبا بك كسائق",
-            message: `مرحبا بك في منصة DZ Taxi. تم إنشاء حسابك كسائق ومركبة ${driverFormData.vehicleBrand} ${driverFormData.vehicleModel} بنجاح.`,
-            type: "system"
+            userEmail: driverFormData.email,
           });
         } catch (notificationError) {
-          console.error('Error sending welcome notifications:', notificationError);
+          console.error('Error sending driver notifications:', notificationError);
         }
-        
-        setSuccess("تم إنشاء الحساب بنجاح! سيتم تسجيل الدخول تلقائياً.");
-        
-        // Auto sign in after successful registration
-        setTimeout(async () => {
-          try {
-            await localSignIn(driverFormData.email, password);
-            toast({
-              title: "تم تسجيل الدخول تلقائياً",
-              description: "مرحباً بك في DZ Taxi!",
-            });
-            navigate("/dashboard");
-          } catch (error) {
-            navigate("/auth/signin");
-          }
-        }, 2000);
-      } else {
-        setError("فشل في إنشاء الحساب");
       }
+
+      setSuccess("تم إنشاء حساب السائق بنجاح! تحقق من بريدك الإلكتروني لتفعيل الحساب.");
+
+      setTimeout(() => {
+        navigate('/auth/signin');
+      }, 3000);
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'تعذر إنشاء حساب السائق');
     }
   };
 
@@ -1069,37 +912,6 @@ const SignUp = () => {
                     </div>
                   </form>
                 </>
-              )}
-
-              {/* Test Accounts Section */}
-              {isLocal && !showDriverOnboarding && (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">حسابات تجريبية جاهزة</span>
-                    </div>
-                  </div>
-
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      يمكنك استخدام الحسابات التجريبية الجاهزة للاختبار
-                    </p>
-                    <div className="grid gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => navigate("/auth/signin")}
-                        className="w-full justify-start"
-                      >
-                        <Database className="h-4 w-4 mr-2" />
-                        تسجيل دخول بحساب تجريبي
-                      </Button>
-                    </div>
-                  </div>
-                </div>
               )}
 
               {!showDriverOnboarding && (
