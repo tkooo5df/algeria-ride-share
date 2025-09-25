@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Settings, ArrowRight, Check } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -30,6 +30,12 @@ const SignUp = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [schemaStatus, setSchemaStatus] = useState<
+    "checking" | "ok" | "notifications-missing" | "error"
+  >("checking");
+  const [checkingSchema, setCheckingSchema] = useState(false);
+  const migrationRequiredMessage =
+    "لا يمكن إنشاء الحساب قبل تشغيل هجرات Supabase التي تنشئ جدول notifications. نفّذ أوامر supabase db push أو اتبع التعليمات في SIGNUP_FIX_GUIDE.md ثم أعد المحاولة.";
   
   // Driver onboarding states
   const [showDriverOnboarding, setShowDriverOnboarding] = useState(false);
@@ -167,6 +173,56 @@ const SignUp = () => {
     return error;
   }, [error]);
 
+  const isNotificationsTableMissing = (supabaseError: any) => {
+    if (!supabaseError) return false;
+
+    const code = typeof supabaseError.code === "string" ? supabaseError.code : undefined;
+    const message = typeof supabaseError.message === "string" ? supabaseError.message.toLowerCase() : "";
+    const details = typeof supabaseError.details === "string" ? supabaseError.details.toLowerCase() : "";
+    const hint = typeof supabaseError.hint === "string" ? supabaseError.hint.toLowerCase() : "";
+    const combined = `${message} ${details} ${hint}`;
+
+    return code === "42P01" || combined.includes("relation \"notifications\" does not exist");
+  };
+
+  const checkSupabaseSchema = useCallback(async () => {
+    setSchemaStatus("checking");
+    setCheckingSchema(true);
+
+    try {
+      const { error: notificationsError } = await supabase
+        .from("notifications")
+        .select("id")
+        .limit(1);
+
+      if (notificationsError) {
+        if (isNotificationsTableMissing(notificationsError)) {
+          console.warn(
+            "Supabase notifications table is missing. Prompting user to run migrations.",
+            notificationsError
+          );
+          setSchemaStatus("notifications-missing");
+          return;
+        }
+
+        console.error("Unexpected Supabase schema error while checking notifications table:", notificationsError);
+        setSchemaStatus("error");
+        return;
+      }
+
+      setSchemaStatus("ok");
+    } catch (schemaError) {
+      console.error("Unexpected error while validating Supabase schema:", schemaError);
+      setSchemaStatus("error");
+    } finally {
+      setCheckingSchema(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkSupabaseSchema();
+  }, [checkSupabaseSchema]);
+
   const mapSupabaseSignUpError = (supabaseError: any) => {
     if (!supabaseError) {
       return "حدث خطأ غير متوقع أثناء محاولة إنشاء الحساب. حاول مرة أخرى.";
@@ -208,6 +264,12 @@ const SignUp = () => {
     setSuccess(null);
 
     if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
+
+    if (schemaStatus === "notifications-missing") {
+      setError(migrationRequiredMessage);
       setLoading(false);
       return;
     }
@@ -276,6 +338,11 @@ const SignUp = () => {
   };
 
   const handleDriverSignup = async () => {
+    if (schemaStatus === "notifications-missing") {
+      setError(migrationRequiredMessage);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email: driverFormData.email,
@@ -399,6 +466,75 @@ const SignUp = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
+        {schemaStatus === "notifications-missing" && (
+          <Alert variant="destructive" className="mb-6 max-w-4xl mx-auto">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Supabase يحتاج إلى تهيئة قبل إنشاء الحسابات</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>
+                أبلغ Supabase أن جدول <span className="font-medium">notifications</span> غير موجود. يجب تشغيل ملفات الهجرة داخل مجلد
+                <code className="mx-1 rounded bg-muted px-1 py-0.5">supabase/migrations</code> قبل محاولة التسجيل.
+              </p>
+              <div>
+                <p className="font-medium">الخطوات السريعة (Supabase CLI):</p>
+                <ol className="list-decimal space-y-1 pr-5 text-right">
+                  <li>
+                    <code className="rounded bg-muted px-1 py-0.5">supabase login</code>
+                  </li>
+                  <li>
+                    <code className="rounded bg-muted px-1 py-0.5">supabase link --project-ref YOUR_PROJECT_REF</code>
+                  </li>
+                  <li>
+                    <code className="rounded bg-muted px-1 py-0.5">supabase db push</code>
+                  </li>
+                </ol>
+              </div>
+              <p>
+                يمكن تنفيذ نفس الأوامر من لوحة Supabase عبر لصق محتوى الملفات
+                <span className="mx-1 font-medium">20250908220515_little_queen.sql</span>
+                و
+                <span className="mx-1 font-medium">20260201000000_full_supabase_support.sql</span>.
+                راجع دليل <span className="font-medium">SIGNUP_FIX_GUIDE.md</span> لمزيد من التفاصيل.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void checkSupabaseSchema()}
+                  disabled={checkingSchema}
+                >
+                  <Settings className="ml-2 h-4 w-4" />
+                  {checkingSchema ? "جاري التحقق..." : "إعادة التحقق"}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        {schemaStatus === "error" && (
+          <Alert className="mb-6 max-w-4xl mx-auto">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>تعذر التحقق من مخطط Supabase</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>
+                لم يتمكن التطبيق من التأكد من جاهزية قاعدة البيانات. تأكد من أن مشروع Supabase متاح ثم أعد المحاولة باستخدام الزر
+                أدناه أو راجع دليل <span className="font-medium">SIGNUP_FIX_GUIDE.md</span> لتطبيق الهجرات يدويًا.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void checkSupabaseSchema()}
+                  disabled={checkingSchema}
+                >
+                  <Settings className="ml-2 h-4 w-4" />
+                  {checkingSchema ? "جاري التحقق..." : "إعادة التحقق"}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader className="text-center">
