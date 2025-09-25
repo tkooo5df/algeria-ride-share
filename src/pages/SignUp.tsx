@@ -173,7 +173,7 @@ const SignUp = () => {
     return error;
   }, [error]);
 
-  const isNotificationsTableMissing = (supabaseError: any) => {
+  const isDatabaseSchemaError = (supabaseError: any) => {
     if (!supabaseError) return false;
 
     const code = typeof supabaseError.code === "string" ? supabaseError.code : undefined;
@@ -182,7 +182,13 @@ const SignUp = () => {
     const hint = typeof supabaseError.hint === "string" ? supabaseError.hint.toLowerCase() : "";
     const combined = `${message} ${details} ${hint}`;
 
-    return code === "42P01" || combined.includes("relation \"notifications\" does not exist");
+    return (
+      code === "42P01" || 
+      code === "unexpected_failure" ||
+      combined.includes("relation \"notifications\" does not exist") ||
+      combined.includes("database error saving new user") ||
+      message.includes("database error saving new user")
+    );
   };
 
   const checkSupabaseSchema = useCallback(async () => {
@@ -196,7 +202,7 @@ const SignUp = () => {
         .limit(1);
 
       if (notificationsError) {
-        if (isNotificationsTableMissing(notificationsError)) {
+        if (isDatabaseSchemaError(notificationsError)) {
           console.warn(
             "Supabase notifications table is missing. Prompting user to run migrations.",
             notificationsError
@@ -263,7 +269,7 @@ const SignUp = () => {
         void checkSupabaseSchema();
       }, 100);
       
-      return "تعذر إنشاء الحساب بسبب خطأ في قاعدة البيانات. يبدو أن مخطط Supabase غير مكتمل. يجب تطبيق ملفات الهجرات أولاً. راجع الرسالة التحذيرية أعلاه للحصول على التعليمات المفصلة.";
+      return "تعذر إنشاء الحساب بسبب خطأ في قاعدة البيانات. مخطط Supabase غير مكتمل - جدول notifications غير موجود. يجب تطبيق ملفات الهجرات أولاً باستخدام 'supabase db push' أو نسخ محتوى ملف 20260206000000_supabase_full_reset.sql إلى SQL Editor في Supabase.";
     }
 
     if (combinedMessage.includes("network error")) {
@@ -288,8 +294,15 @@ const SignUp = () => {
       return;
     }
 
-    if (schemaStatus === "notifications-missing") {
+    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
       setError(migrationRequiredMessage);
+      setLoading(false);
+      return;
+    }
+
+    // Additional check before attempting signup
+    if (schemaStatus === "checking") {
+      setError("جاري التحقق من قاعدة البيانات. الرجاء الانتظار...");
       setLoading(false);
       return;
     }
@@ -351,15 +364,28 @@ const SignUp = () => {
       }, 3000);
     } catch (error: any) {
       console.error("Supabase sign up failed", error);
-      setError(mapSupabaseSignUpError(error));
+      const mappedError = mapSupabaseSignUpError(error);
+      setError(mappedError);
+      
+      // If it's a database schema error, force a schema recheck
+      if (isDatabaseSchemaError(error)) {
+        setTimeout(() => {
+          void checkSupabaseSchema();
+        }, 500);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleDriverSignup = async () => {
-    if (schemaStatus === "notifications-missing") {
+    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
       setError(migrationRequiredMessage);
+      return;
+    }
+
+    if (schemaStatus === "checking") {
+      setError("جاري التحقق من قاعدة البيانات. الرجاء الانتظار...");
       return;
     }
 
@@ -415,7 +441,15 @@ const SignUp = () => {
       }, 3000);
     } catch (error: any) {
       console.error("Supabase driver sign up failed", error);
-      setError(mapSupabaseSignUpError(error));
+      const mappedError = mapSupabaseSignUpError(error);
+      setError(mappedError);
+      
+      // If it's a database schema error, force a schema recheck
+      if (isDatabaseSchemaError(error)) {
+        setTimeout(() => {
+          void checkSupabaseSchema();
+        }, 500);
+      }
     }
   };
 
