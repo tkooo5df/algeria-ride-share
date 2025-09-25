@@ -210,6 +210,18 @@ const SignUp = () => {
         return;
       }
 
+      // Also check if profiles table has the required columns
+      const { error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name, language")
+        .limit(1);
+
+      if (profilesError) {
+        console.error("Profiles table validation failed:", profilesError);
+        setSchemaStatus("error");
+        return;
+      }
+
       setSchemaStatus("ok");
     } catch (schemaError) {
       console.error("Unexpected error while validating Supabase schema:", schemaError);
@@ -231,6 +243,7 @@ const SignUp = () => {
     const status = typeof supabaseError.status === "number" ? supabaseError.status : undefined;
     const message = typeof supabaseError.message === "string" ? supabaseError.message : "";
     const details = typeof supabaseError.details === "string" ? supabaseError.details : "";
+    const code = typeof supabaseError.code === "string" ? supabaseError.code : "";
     const combinedMessage = `${message} ${details}`.toLowerCase();
 
     if (status === 400 && combinedMessage.includes("already registered")) {
@@ -239,11 +252,18 @@ const SignUp = () => {
 
     if (
       status === 500 ||
+      code === "unexpected_failure" ||
       combinedMessage.includes("database error") ||
+      combinedMessage.includes("database error saving new user") ||
       combinedMessage.includes("42p01") ||
       combinedMessage.includes("relation \"notifications\" does not exist")
     ) {
-      return "تعذر إنشاء الحساب لأن مشروع Supabase يعيد خطأ داخلياً (500). يحدث ذلك عادةً عند عدم تطبيق ملفات الهجرات داخل مجلد supabase/migrations، خصوصاً الملفات التي تنشئ جدول notifications وتحدّث القيود. افتح لوحة Supabase أو استخدم Supabase CLI لتشغيل الأوامر المذكورة في SIGNUP_FIX_GUIDE.md وDATABASE_SETUP.md ثم أعد المحاولة.";
+      // Force schema check when we detect database errors
+      setTimeout(() => {
+        void checkSupabaseSchema();
+      }, 100);
+      
+      return "تعذر إنشاء الحساب بسبب خطأ في قاعدة البيانات. يبدو أن مخطط Supabase غير مكتمل. يجب تطبيق ملفات الهجرات أولاً. راجع الرسالة التحذيرية أعلاه للحصول على التعليمات المفصلة.";
     }
 
     if (combinedMessage.includes("network error")) {
@@ -268,8 +288,15 @@ const SignUp = () => {
       return;
     }
 
-    if (schemaStatus === "notifications-missing") {
+    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
       setError(migrationRequiredMessage);
+      setLoading(false);
+      return;
+    }
+
+    // Double-check schema before attempting signup
+    if (schemaStatus === "checking") {
+      setError("جاري التحقق من جاهزية قاعدة البيانات. الرجاء الانتظار...");
       setLoading(false);
       return;
     }
@@ -338,8 +365,13 @@ const SignUp = () => {
   };
 
   const handleDriverSignup = async () => {
-    if (schemaStatus === "notifications-missing") {
+    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
       setError(migrationRequiredMessage);
+      return;
+    }
+
+    if (schemaStatus === "checking") {
+      setError("جاري التحقق من جاهزية قاعدة البيانات. الرجاء الانتظار...");
       return;
     }
 
