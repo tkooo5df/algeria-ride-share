@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import { BrowserDatabaseService } from '@/integrations/database/browserServices';
 
-export enum DatabaseType {
-  SUPABASE = 'supabase',
-  LOCAL = 'local',
-}
+export type DatabaseType = 'supabase';
 
 export const useDatabase = () => {
-  const [databaseType] = useState<DatabaseType>(DatabaseType.SUPABASE);
+  const databaseType: DatabaseType = 'supabase';
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
