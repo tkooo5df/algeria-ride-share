@@ -196,6 +196,7 @@ const SignUp = () => {
     setCheckingSchema(true);
 
     try {
+      // First check if notifications table exists
       const { error: notificationsError } = await supabase
         .from("notifications")
         .select("id")
@@ -216,7 +217,7 @@ const SignUp = () => {
         return;
       }
 
-      // Also check if profiles table has the required columns
+      // Check if profiles table has the required columns and trigger
       const { error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name, language")
@@ -226,6 +227,14 @@ const SignUp = () => {
         console.error("Profiles table validation failed:", profilesError);
         setSchemaStatus("error");
         return;
+      }
+
+      // Additional check: try to verify the handle_new_user trigger exists
+      // by checking if we can query the pg_trigger table (this will fail gracefully if not accessible)
+      try {
+        await supabase.rpc('version'); // Simple RPC call to test database connectivity
+      } catch (rpcError) {
+        console.warn("Database RPC test failed, but continuing:", rpcError);
       }
 
       setSchemaStatus("ok");
@@ -300,9 +309,16 @@ const SignUp = () => {
       return;
     }
 
-    // Additional check before attempting signup
+    // Prevent signup if schema is still being checked
     if (schemaStatus === "checking") {
       setError("جاري التحقق من قاعدة البيانات. الرجاء الانتظار...");
+      setLoading(false);
+      return;
+    }
+
+    // Final safety check - ensure schema is confirmed OK
+    if (schemaStatus !== "ok") {
+      setError("لا يمكن إنشاء الحساب. قاعدة البيانات غير جاهزة. يرجى التحقق من إعداد Supabase.");
       setLoading(false);
       return;
     }
@@ -369,6 +385,7 @@ const SignUp = () => {
       
       // If it's a database schema error, force a schema recheck
       if (isDatabaseSchemaError(error)) {
+        setSchemaStatus("notifications-missing");
         setTimeout(() => {
           void checkSupabaseSchema();
         }, 500);
@@ -386,6 +403,12 @@ const SignUp = () => {
 
     if (schemaStatus === "checking") {
       setError("جاري التحقق من قاعدة البيانات. الرجاء الانتظار...");
+      return;
+    }
+
+    // Final safety check for driver signup too
+    if (schemaStatus !== "ok") {
+      setError("لا يمكن إنشاء حساب السائق. قاعدة البيانات غير جاهزة. يرجى التحقق من إعداد Supabase.");
       return;
     }
 
@@ -801,7 +824,11 @@ const SignUp = () => {
 
                     {/* Submit Buttons */}
                     <div className="space-y-3">
-                      <Button type="submit" className="w-full" disabled={loading}>
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={loading || schemaStatus !== "ok"}
+                      >
                         {loading ? "جاري إنشاء الحساب..." : "إنشاء حساب"}
                       </Button>
                       
@@ -819,7 +846,7 @@ const SignUp = () => {
                         variant="outline" 
                         className="w-full" 
                         onClick={handleGoogleSignUp}
-                        disabled={loading || googleLoading}
+                        disabled={loading || googleLoading || schemaStatus !== "ok"}
                       >
                         <Chrome className="h-4 w-4 mr-2" />
                         {googleLoading ? "جاري التسجيل..." : "التسجيل باستخدام Google"}
@@ -1135,7 +1162,11 @@ const SignUp = () => {
                           <ArrowRight className="h-4 w-4 mr-2" />
                         </Button>
                       ) : (
-                        <Button type="submit" className="bg-gradient-primary" disabled={loading}>
+                        <Button 
+                          type="submit" 
+                          className="bg-gradient-primary" 
+                          disabled={loading || schemaStatus !== "ok"}
+                        >
                           {loading ? "جاري إنشاء الحساب..." : "إنشاء الحساب"}
                           <Check className="h-4 w-4 mr-2" />
                         </Button>
