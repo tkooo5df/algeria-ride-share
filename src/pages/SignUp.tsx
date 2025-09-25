@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Settings, ArrowRight, Check } from "lucide-react";
+import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Chrome, Settings, ArrowRight, Check } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { wilayas } from "@/data/wilayas";
@@ -288,15 +288,8 @@ const SignUp = () => {
       return;
     }
 
-    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
+    if (schemaStatus === "notifications-missing") {
       setError(migrationRequiredMessage);
-      setLoading(false);
-      return;
-    }
-
-    // Double-check schema before attempting signup
-    if (schemaStatus === "checking") {
-      setError("جاري التحقق من جاهزية قاعدة البيانات. الرجاء الانتظار...");
       setLoading(false);
       return;
     }
@@ -365,13 +358,8 @@ const SignUp = () => {
   };
 
   const handleDriverSignup = async () => {
-    if (schemaStatus === "notifications-missing" || schemaStatus === "error") {
+    if (schemaStatus === "notifications-missing") {
       setError(migrationRequiredMessage);
-      return;
-    }
-
-    if (schemaStatus === "checking") {
-      setError("جاري التحقق من جاهزية قاعدة البيانات. الرجاء الانتظار...");
       return;
     }
 
