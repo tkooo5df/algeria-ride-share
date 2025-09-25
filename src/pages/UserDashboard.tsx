@@ -65,6 +65,14 @@ const UserDashboard = () => {
   
   // Use local user if using local database, otherwise use Supabase user
   const user = isLocal ? localUser : supabaseUser;
+  // Data states
+  const [vehicles, setVehicles] = useState([]);
+  const [trips, setTrips] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
+  const [users, setUsers] = useState([]); // Add this line for users data
+  const [adminStats, setAdminStats] = useState({ totalUsers: 0, totalDrivers: 0, totalPassengers: 0 });
+
   const [currentLang] = useState("ar");
   const [loading, setLoading] = useState(true);
   const [notificationStats, setNotificationStats] = useState({ total: 0, unread: 0, recent: 0 });
@@ -76,14 +84,6 @@ const UserDashboard = () => {
     fallback: 'عضو',
     email: user?.email ?? null,
   });
-  
-  // Data states
-  const [vehicles, setVehicles] = useState([]);
-  const [trips, setTrips] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [userProfile, setUserProfile] = useState(null);
-  const [users, setUsers] = useState([]); // Add this line for users data
-  const [adminStats, setAdminStats] = useState({ totalUsers: 0, totalDrivers: 0, totalPassengers: 0 });
   
   // Trip creation form
   const [showTripForm, setShowTripForm] = useState(false);
