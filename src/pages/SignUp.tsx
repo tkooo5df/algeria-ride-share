@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Car, User, Mail, Phone, MapPin, Eye, EyeOff, CheckCircle, AlertCircle, Chrome, Settings, ArrowRight, Check } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -162,6 +162,45 @@ const SignUp = () => {
     return true;
   };
 
+  const interpretedErrorMessage = useMemo(() => {
+    if (!error) return null;
+    return error;
+  }, [error]);
+
+  const mapSupabaseSignUpError = (supabaseError: any) => {
+    if (!supabaseError) {
+      return "حدث خطأ غير متوقع أثناء محاولة إنشاء الحساب. حاول مرة أخرى.";
+    }
+
+    const status = typeof supabaseError.status === "number" ? supabaseError.status : undefined;
+    const message = typeof supabaseError.message === "string" ? supabaseError.message : "";
+    const details = typeof supabaseError.details === "string" ? supabaseError.details : "";
+    const combinedMessage = `${message} ${details}`.toLowerCase();
+
+    if (status === 400 && combinedMessage.includes("already registered")) {
+      return "هذا البريد الإلكتروني مسجل بالفعل. جرّب تسجيل الدخول أو استخدم بريداً مختلفاً.";
+    }
+
+    if (
+      status === 500 ||
+      combinedMessage.includes("database error") ||
+      combinedMessage.includes("42p01") ||
+      combinedMessage.includes("relation \"notifications\" does not exist")
+    ) {
+      return "تعذر إنشاء الحساب لأن مشروع Supabase يعيد خطأ داخلياً (500). يحدث ذلك عادةً عند عدم تطبيق ملفات الهجرات داخل مجلد supabase/migrations، خصوصاً الملفات التي تنشئ جدول notifications وتحدّث القيود. افتح لوحة Supabase أو استخدم Supabase CLI لتشغيل الأوامر المذكورة في SIGNUP_FIX_GUIDE.md وDATABASE_SETUP.md ثم أعد المحاولة.";
+    }
+
+    if (combinedMessage.includes("network error")) {
+      return "تعذر الاتصال بخدمة Supabase. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.";
+    }
+
+    if (message) {
+      return message;
+    }
+
+    return "حدث خطأ غير معروف أثناء إنشاء الحساب. الرجاء المحاولة مرة أخرى لاحقاً.";
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -229,7 +268,8 @@ const SignUp = () => {
         navigate('/auth/signin');
       }, 3000);
     } catch (error: any) {
-      setError(error.message);
+      console.error("Supabase sign up failed", error);
+      setError(mapSupabaseSignUpError(error));
     } finally {
       setLoading(false);
     }
@@ -287,7 +327,8 @@ const SignUp = () => {
         navigate('/auth/signin');
       }, 3000);
     } catch (error: any) {
-      setError(error.message || 'تعذر إنشاء حساب السائق');
+      console.error("Supabase driver sign up failed", error);
+      setError(mapSupabaseSignUpError(error));
     }
   };
 
@@ -554,10 +595,10 @@ const SignUp = () => {
                     </div>
 
                     {/* Error and Success Messages */}
-                    {error && (
+                    {interpretedErrorMessage && (
                       <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
+                        <AlertDescription>{interpretedErrorMessage}</AlertDescription>
                       </Alert>
                     )}
 

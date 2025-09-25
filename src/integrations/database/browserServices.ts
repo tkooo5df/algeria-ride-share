@@ -22,6 +22,22 @@ type BookingRow = Tables<'bookings'>;
 type NotificationRow = Tables<'notifications'>;
 type SystemSettingRow = Tables<'system_settings'>;
 
+const isNotificationsTableMissing = (error: any) => {
+  if (!error) return false;
+  const code = typeof error.code === 'string' ? error.code : undefined;
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  const details = typeof error.details === 'string' ? error.details.toLowerCase() : '';
+  const combined = `${message} ${details}`;
+  return code === '42P01' || combined.includes('relation "notifications" does not exist');
+};
+
+const logMissingNotificationsTable = (error: any) => {
+  console.warn(
+    'Supabase لم يجد جدول notifications. قم بتشغيل ملفات الهجرة داخل supabase/migrations (مثل 20250908220515_little_queen.sql و 20260201000000_full_supabase_support.sql) ثم أعد المحاولة.',
+    error
+  );
+};
+
 const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
   if (!row) return null;
 
@@ -721,6 +737,11 @@ class SupabaseDatabaseService {
       .single();
 
     if (error) {
+      if (isNotificationsTableMissing(error)) {
+        logMissingNotificationsTable(error);
+        return null;
+      }
+
       console.error('Error creating notification:', error);
       throw error;
     }
@@ -729,34 +750,52 @@ class SupabaseDatabaseService {
   }
 
   static async getNotifications(userId: string) {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      return (data ?? []).map(mapNotification).filter(Boolean);
+    } catch (error: any) {
+      if (isNotificationsTableMissing(error)) {
+        logMissingNotificationsTable(error);
+        return [];
+      }
+
       console.error('Error fetching notifications:', error);
       throw error;
     }
-
-    return (data ?? []).map(mapNotification).filter(Boolean);
   }
 
   static async markNotificationAsRead(id: string) {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      return mapNotification(data);
+    } catch (error: any) {
+      if (isNotificationsTableMissing(error)) {
+        logMissingNotificationsTable(error);
+        return null;
+      }
+
       console.error('Error marking notification as read:', error);
       throw error;
     }
-
-    return mapNotification(data);
   }
 
   // System settings operations

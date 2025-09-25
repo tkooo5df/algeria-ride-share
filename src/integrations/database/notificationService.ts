@@ -115,6 +115,27 @@ export class NotificationService {
     return getDisplayName(profile, { fallback });
   }
 
+  private static isNotificationsTableMissing(error: any) {
+    if (!error) return false;
+    const code = typeof error.code === 'string' ? error.code : undefined;
+    const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+    const details = typeof error.details === 'string' ? error.details.toLowerCase() : '';
+    const combined = `${message} ${details}`;
+    return code === '42P01' || combined.includes('relation "notifications" does not exist');
+  }
+
+  private static handleMissingNotificationsTable(error: any) {
+    if (!this.isNotificationsTableMissing(error)) {
+      throw error;
+    }
+
+    console.warn(
+      'Supabase لم يجد جدول notifications. شغّل ملفات الهجرة داخل supabase/migrations (خاصة 20250908220515_little_queen.sql و 20260201000000_full_supabase_support.sql) ثم أعد المحاولة.',
+      error
+    );
+    return null;
+  }
+
   // Create notification with enhanced features
   static async createNotification(data: NotificationData) {
     try {
@@ -127,12 +148,16 @@ export class NotificationService {
 
       // Enhanced logging with category and priority
       console.log(`📧 [${data.category?.toUpperCase()}] [${data.priority?.toUpperCase()}] Notification sent to user ${data.userId}: ${data.title}`);
-      
+
       // Track notification metrics
       this.trackNotificationMetrics(data);
-      
+
       return notification;
     } catch (error) {
+      if (this.isNotificationsTableMissing(error)) {
+        return this.handleMissingNotificationsTable(error);
+      }
+
       console.error('Error creating notification:', error);
       throw error;
     }
@@ -156,6 +181,10 @@ export class NotificationService {
       
       return await this.createNotification(customizedData);
     } catch (error) {
+      if (this.isNotificationsTableMissing(error)) {
+        return this.handleMissingNotificationsTable(error);
+      }
+
       console.error('Error in smart notification routing:', error);
       throw error;
     }
