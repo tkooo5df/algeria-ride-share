@@ -8,7 +8,7 @@ export interface Profile {
   lastName: string;
   fullName: string;
   phone: string | null;
-  role: 'driver' | 'passenger' | 'admin';
+  role: 'driver' | 'passenger' | 'admin' | 'developer';
   wilaya: string;
   commune: string;
   address: string;

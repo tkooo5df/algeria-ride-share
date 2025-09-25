@@ -52,6 +52,7 @@ import { wilayas } from '@/data/wilayas';
 import NotificationCenter from '@/components/NotificationCenter';
 import { NotificationService, NotificationType, NotificationCategory, NotificationPriority } from '@/integrations/database/notificationService';
 import DatabaseSwitch from '@/components/DatabaseSwitch';
+import { getDisplayName } from '@/utils/displayName';
 
 // Import the new components
 import TripManagement from '@/components/admin/TripManagement';
@@ -67,6 +68,14 @@ const UserDashboard = () => {
   const [currentLang] = useState("ar");
   const [loading, setLoading] = useState(true);
   const [notificationStats, setNotificationStats] = useState({ total: 0, unread: 0, recent: 0 });
+
+  const displayName = getDisplayName([
+    userProfile,
+    user,
+  ], {
+    fallback: 'عضو',
+    email: user?.email ?? null,
+  });
   
   // Data states
   const [vehicles, setVehicles] = useState([]);
@@ -778,14 +787,14 @@ const UserDashboard = () => {
               <Avatar className="h-16 w-16 border-2 border-white/20 flex-shrink-0">
                 <AvatarImage src="/placeholder.svg" />
                 <AvatarFallback className="bg-white/20 text-white">
-                  {userProfile?.fullName?.charAt(0) || 'م'}
+                  {displayName?.charAt(0) || 'ع'}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold truncate">{roleInfo.title}</h1>
                 <p className="text-white/90 truncate">{roleInfo.description}</p>
                 <p className="text-white/80 text-sm truncate">
-                  مرحباً، {userProfile?.fullName || 'مستخدم'}
+                  مرحباً، {displayName}
                 </p>
               </div>
             </div>

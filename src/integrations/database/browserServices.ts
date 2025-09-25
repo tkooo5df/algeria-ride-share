@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { wilayas } from '@/data/wilayas';
+import type { Profile as BrowserProfile } from './browserDatabase';
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -21,7 +22,7 @@ type BookingRow = Tables<'bookings'>;
 type NotificationRow = Tables<'notifications'>;
 type SystemSettingRow = Tables<'system_settings'>;
 
-const mapProfile = (row: ProfileRow | null) => {
+const mapProfile = (row: ProfileRow | null): BrowserProfile | null => {
   if (!row) return null;
 
   const firstName = row.first_name ?? '';
@@ -35,7 +36,7 @@ const mapProfile = (row: ProfileRow | null) => {
     lastName,
     fullName: fullName || row.email || '',
     phone: row.phone ?? null,
-    role: (row.role ?? 'passenger') as 'driver' | 'passenger' | 'admin',
+    role: (row.role ?? 'passenger') as 'driver' | 'passenger' | 'admin' | 'developer',
     wilaya: row.wilaya ?? 'الجزائر',
     commune: row.commune ?? 'غير محدد',
     address: row.address ?? 'غير محدد',

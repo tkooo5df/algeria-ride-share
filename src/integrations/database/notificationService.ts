@@ -1,4 +1,5 @@
 import { BrowserDatabaseService } from './browserServices';
+import { getDisplayName } from '@/utils/displayName';
 
 // Comprehensive notification types
 export enum NotificationType {
@@ -110,6 +111,10 @@ export interface NotificationData {
 
 // Enhanced notification service with smart routing
 export class NotificationService {
+  private static resolveProfileName(profile: any, fallback: string = 'عضو') {
+    return getDisplayName(profile, { fallback });
+  }
+
   // Create notification with enhanced features
   static async createNotification(data: NotificationData) {
     try {
@@ -397,12 +402,14 @@ export class NotificationService {
       }
 
       const notifications = [];
+      const passengerName = this.resolveProfileName(passenger);
+      const driverName = this.resolveProfileName(driver);
 
       // 1. Notify driver - High priority
       const driverNotification = await this.sendSmartNotification({
         userId: bookingData.driverId,
         title: '🎉 حجز جديد!',
-        message: `تم حجز ${bookingData.seatsBooked} مقعد في رحلتك من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. الراكب: ${passenger.fullName} - المبلغ: ${bookingData.totalAmount} دج`,
+        message: `تم حجز ${bookingData.seatsBooked} مقعد في رحلتك من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. الراكب: ${passengerName} - المبلغ: ${bookingData.totalAmount} دج`,
         type: NotificationType.BOOKING_CREATED,
         category: NotificationCategory.BOOKING,
         priority: NotificationPriority.HIGH,
@@ -410,10 +417,11 @@ export class NotificationService {
         relatedType: 'booking',
         metadata: {
           passengerId: bookingData.passengerId,
-          passengerName: passenger.fullName,
+          passengerName,
           passengerPhone: passenger.phone,
           seatsBooked: bookingData.seatsBooked,
-          totalAmount: bookingData.totalAmount
+          totalAmount: bookingData.totalAmount,
+          audience: 'driver'
         }
       });
       notifications.push(driverNotification);
@@ -422,7 +430,7 @@ export class NotificationService {
       const passengerNotification = await this.sendSmartNotification({
         userId: bookingData.passengerId,
         title: '✅ تم تأكيد حجزك!',
-        message: `تم تأكيد حجزك بنجاح. السائق: ${driver.fullName} (${driver.phone}). سيتم التواصل معك قريباً لترتيب التفاصيل.`,
+        message: `تم تأكيد حجزك بنجاح. السائق: ${driverName} (${driver.phone}). سيتم التواصل معك قريباً لترتيب التفاصيل.`,
         type: NotificationType.BOOKING_CONFIRMED,
         category: NotificationCategory.BOOKING,
         priority: NotificationPriority.MEDIUM,
@@ -430,10 +438,11 @@ export class NotificationService {
         relatedType: 'booking',
         metadata: {
           driverId: bookingData.driverId,
-          driverName: driver.fullName,
+          driverName,
           driverPhone: driver.phone,
           departureTime: trip.departureTime,
-          pickupLocation: bookingData.pickupLocation
+          pickupLocation: bookingData.pickupLocation,
+          audience: 'passenger'
         }
       });
       notifications.push(passengerNotification);
@@ -441,10 +450,15 @@ export class NotificationService {
       // 3. Notify admins - System monitoring (only if admins exist)
       if (adminProfiles.length > 0) {
         for (const admin of adminProfiles) {
+          const isDeveloper = admin.role === 'developer';
+          const title = isDeveloper ? '🔧 نشاط جديد بين الركاب والسائقين' : '📊 حجز جديد في النظام';
+          const message = isDeveloper
+            ? `تنبيه مطور: ${passengerName} حجز ${bookingData.seatsBooked} مقعد مع ${driverName} من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. القيمة: ${bookingData.totalAmount} دج.`
+            : `حجز جديد: ${passengerName} حجز ${bookingData.seatsBooked} مقعد في رحلة ${driverName} من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. المبلغ: ${bookingData.totalAmount} دج`;
           const adminNotification = await this.sendSmartNotification({
             userId: admin.id,
-            title: '📊 حجز جديد في النظام',
-            message: `حجز جديد: ${passenger.fullName} حجز ${bookingData.seatsBooked} مقعد في رحلة ${driver.fullName} من ${bookingData.pickupLocation} إلى ${bookingData.destinationLocation}. المبلغ: ${bookingData.totalAmount} دج`,
+            title,
+            message,
             type: NotificationType.BOOKING_CREATED,
             category: NotificationCategory.SYSTEM,
             priority: NotificationPriority.MEDIUM,
@@ -453,7 +467,8 @@ export class NotificationService {
             metadata: {
               bookingId: bookingData.bookingId,
               revenue: bookingData.totalAmount,
-              paymentMethod: bookingData.paymentMethod
+              paymentMethod: bookingData.paymentMethod,
+              audience: isDeveloper ? 'developer' : 'admin'
             }
           });
           notifications.push(adminNotification);
@@ -462,8 +477,9 @@ export class NotificationService {
 
       // 4. Log admin action (only if admins exist)
       if (adminProfiles.length > 0) {
+        const managementActor = adminProfiles.find(profile => profile.role === 'admin') ?? adminProfiles[0];
         await this.logAdminAction({
-          adminId: adminProfiles[0].id,
+          adminId: managementActor.id,
           action: 'booking_created',
           targetType: 'booking',
           targetId: bookingData.bookingId.toString(),
@@ -473,6 +489,8 @@ export class NotificationService {
             tripId: bookingData.tripId,
             amount: bookingData.totalAmount,
             seats: bookingData.seatsBooked,
+            passengerName,
+            driverName,
             timestamp: new Date().toISOString()
           }
         });
@@ -502,37 +520,70 @@ export class NotificationService {
       }
 
       const notifications = [];
+      const driverName = this.resolveProfileName(driver);
+      const [passenger, adminProfiles] = await Promise.all([
+        booking.passengerId ? BrowserDatabaseService.getProfile(booking.passengerId) : Promise.resolve(null),
+        this.getAdminUsers()
+      ]);
+      const passengerName = this.resolveProfileName(passenger);
 
       // Notify passenger
       const passengerNotification = await this.sendSmartNotification({
         userId: booking.passengerId!,
         title: '🚗 تم قبول حجزك!',
-        message: `السائق ${driver.fullName} قبل حجزك. يمكنك التواصل معه على ${driver.phone} لترتيب تفاصيل الرحلة.`,
+        message: `السائق ${driverName} قبل حجزك. يمكنك التواصل معه على ${driver.phone} لترتيب تفاصيل الرحلة.`,
         type: NotificationType.BOOKING_CONFIRMED,
         category: NotificationCategory.BOOKING,
         priority: NotificationPriority.HIGH,
         relatedId: bookingId.toString(),
         relatedType: 'booking',
         metadata: {
-          driverName: driver.fullName,
+          driverName,
           driverPhone: driver.phone,
           status: 'confirmed'
         }
       });
       notifications.push(passengerNotification);
 
-      // Notify admins
-      const adminProfiles = await this.getAdminUsers();
+      // Notify driver confirmation success
+      const driverNotification = await this.sendSmartNotification({
+        userId: driverId,
+        title: '✅ تم تأكيد الحجز',
+        message: `تم تأكيد حجز #${bookingId}. تأكد من التواصل مع الراكب لتنسيق تفاصيل الرحلة.`,
+        type: NotificationType.BOOKING_CONFIRMED,
+        category: NotificationCategory.BOOKING,
+        priority: NotificationPriority.MEDIUM,
+        relatedId: bookingId.toString(),
+        relatedType: 'booking',
+        metadata: {
+          bookingStatus: 'confirmed',
+          passengerId: booking.passengerId,
+          passengerName,
+          passengerPhone: passenger?.phone,
+          departureTime: booking.pickupTime
+        }
+      });
+      notifications.push(driverNotification);
+
+      // Notify admins and developers
       for (const admin of adminProfiles) {
+        const isDeveloper = admin.role === 'developer';
         const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: '✅ تم تأكيد حجز',
-          message: `السائق ${driver.fullName} أكد حجز #${bookingId}`,
+          title: isDeveloper ? '🔧 تأكيد حجز - متابعة تقنية' : '✅ تم تأكيد حجز',
+          message: isDeveloper
+            ? `تحديث مطور: ${driverName} أكد الحجز #${bookingId} للراكب ${passengerName}.`
+            : `السائق ${driverName} أكد حجز #${bookingId}`,
           type: NotificationType.BOOKING_CONFIRMED,
           category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
           relatedId: bookingId.toString(),
-          relatedType: 'booking'
+          relatedType: 'booking',
+          metadata: {
+            audience: isDeveloper ? 'developer' : 'admin',
+            passengerName,
+            driverName,
+          }
         });
         notifications.push(adminNotification);
       }
@@ -558,6 +609,14 @@ export class NotificationService {
 
       const notifications = [];
       const reasonText = reason ? ` السبب: ${reason}` : '';
+      const cancelledByName = this.resolveProfileName(cancelledByUser);
+      const [passengerProfile, driverProfile, adminProfiles] = await Promise.all([
+        booking.passengerId ? BrowserDatabaseService.getProfile(booking.passengerId) : Promise.resolve(null),
+        booking.driverId ? BrowserDatabaseService.getProfile(booking.driverId) : Promise.resolve(null),
+        this.getAdminUsers()
+      ]);
+      const passengerName = this.resolveProfileName(passengerProfile);
+      const driverName = this.resolveProfileName(driverProfile);
 
       // Notify passenger (if not the one who cancelled)
       if (booking.passengerId && booking.passengerId !== cancelledBy) {
@@ -571,9 +630,11 @@ export class NotificationService {
           relatedId: bookingId.toString(),
           relatedType: 'booking',
           metadata: {
-            cancelledBy: cancelledByUser.fullName,
+            cancelledBy: cancelledByName,
             reason: reason,
-            refundStatus: 'pending'
+            refundStatus: 'pending',
+            driverName,
+            audience: 'passenger'
           }
         });
         notifications.push(passengerNotification);
@@ -591,20 +652,24 @@ export class NotificationService {
           relatedId: bookingId.toString(),
           relatedType: 'booking',
           metadata: {
-            cancelledBy: cancelledByUser.fullName,
-            reason: reason
+            cancelledBy: cancelledByName,
+            reason: reason,
+            passengerName,
+            audience: 'driver'
           }
         });
         notifications.push(driverNotification);
       }
 
       // Notify admins
-      const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
+        const isDeveloper = admin.role === 'developer';
         const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: '❌ تم إلغاء حجز',
-          message: `تم إلغاء حجز #${bookingId} من قبل ${cancelledByUser.fullName}.${reasonText}`,
+          title: isDeveloper ? '🔧 إلغاء حجز - متابعة تقنية' : '❌ تم إلغاء حجز',
+          message: isDeveloper
+            ? `تنبيه مطور: ${cancelledByName} ألغى الحجز #${bookingId} بين ${passengerName} و${driverName}.${reasonText}`
+            : `تم إلغاء حجز #${bookingId} من قبل ${cancelledByName}.${reasonText}`,
           type: NotificationType.BOOKING_CANCELLED,
           category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
@@ -613,7 +678,10 @@ export class NotificationService {
           metadata: {
             cancelledBy: cancelledBy,
             reason: reason,
-            refundRequired: true
+            refundRequired: true,
+            passengerName,
+            driverName,
+            audience: isDeveloper ? 'developer' : 'admin'
           }
         });
         notifications.push(adminNotification);
@@ -643,9 +711,11 @@ export class NotificationService {
       }
 
       const notifications = [];
-      const reminderMessage = reminderType === 'departure' 
+      const passengerName = this.resolveProfileName(passenger);
+      const driverName = this.resolveProfileName(driver);
+      const reminderMessage = reminderType === 'departure'
         ? `تذكير: رحلتك ستبدأ خلال ساعة واحدة من ${trip.fromWilayaId} إلى ${trip.toWilayaId}`
-        : `تذكير: موعد الانطلاق اقترب. تواصل مع السائق ${driver.fullName} على ${driver.phone}`;
+        : `تذكير: موعد الانطلاق اقترب. تواصل مع السائق ${driverName} على ${driver.phone}`;
 
       // Notify passenger
       const passengerNotification = await this.sendSmartNotification({
@@ -659,8 +729,10 @@ export class NotificationService {
         relatedType: 'booking',
         metadata: {
           reminderType,
+          driverName,
           driverPhone: driver.phone,
-          departureTime: trip.departureTime
+          departureTime: trip.departureTime,
+          audience: 'passenger'
         }
       });
       notifications.push(passengerNotification);
@@ -668,17 +740,21 @@ export class NotificationService {
       // Notify driver
       const driverNotification = await this.sendSmartNotification({
         userId: booking.driverId!,
-        title: '⏰ تذكير برحلتك',
-        message: `تذكير: رحلتك ستبدأ قريباً. راكب: ${passenger.fullName} (${passenger.phone})`,
+        title: reminderType === 'pickup' ? '🚗 تذكير بالاستلام' : '⏰ تذكير بالرحلة',
+        message: reminderType === 'pickup'
+          ? `تذكير: رحلتك ستبدأ قريباً. راكب: ${passengerName} (${passenger.phone})`
+          : `تذكير: رحلتك مجدولة لمغادرة ${trip.fromWilayaId} في ${booking.pickupTime}`,
         type: NotificationType.BOOKING_REMINDER,
         category: NotificationCategory.BOOKING,
-        priority: NotificationPriority.HIGH,
+        priority: reminderType === 'pickup' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
         relatedId: bookingId.toString(),
         relatedType: 'booking',
         metadata: {
           reminderType,
+          passengerName,
           passengerPhone: passenger.phone,
-          departureTime: trip.departureTime
+          departureTime: trip.departureTime,
+          audience: 'driver'
         }
       });
       notifications.push(driverNotification);
@@ -705,6 +781,7 @@ export class NotificationService {
       }
 
       const notifications = [];
+      const driverName = this.resolveProfileName(driver);
 
       // Notify driver about successful trip creation
       const driverNotification = await this.sendSmartNotification({
@@ -728,10 +805,13 @@ export class NotificationService {
       // Notify admins about new trip
       const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
+        const isDeveloper = admin.role === 'developer';
         const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: '🚗 رحلة جديدة منشورة',
-          message: `السائق ${driver.fullName} أنشأ رحلة جديدة من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج للمقعد.`,
+          title: isDeveloper ? '🔧 رحلة جديدة منشورة (مطور)' : '🚗 رحلة جديدة منشورة',
+          message: isDeveloper
+            ? `تنبيه مطور: ${driverName} أنشأ رحلة جديدة من ${trip.fromWilayaId} إلى ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج للمقعد.`
+            : `السائق ${driverName} أنشأ رحلة جديدة من ولاية ${trip.fromWilayaId} إلى ولاية ${trip.toWilayaId} بسعر ${trip.pricePerSeat} دج للمقعد.`,
           type: NotificationType.TRIP_CREATED,
           category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
@@ -739,8 +819,9 @@ export class NotificationService {
           relatedType: 'trip',
           metadata: {
             driverId: driverId,
-            driverName: driver.fullName,
-            revenue: trip.pricePerSeat * trip.availableSeats
+            driverName,
+            revenue: trip.pricePerSeat * trip.availableSeats,
+            audience: isDeveloper ? 'developer' : 'admin'
           }
         });
         notifications.push(adminNotification);
@@ -771,6 +852,7 @@ export class NotificationService {
 
       const notifications = [];
       const reasonText = reason ? ` السبب: ${reason}` : '';
+      const driverName = this.resolveProfileName(driver);
 
       // Notify all passengers with bookings
       for (const booking of tripBookings) {
@@ -787,7 +869,9 @@ export class NotificationService {
             metadata: {
               bookingId: booking.id,
               refundAmount: booking.totalAmount,
-              reason: reason
+              reason: reason,
+              driverName,
+              audience: 'passenger'
             }
           });
           notifications.push(passengerNotification);
@@ -797,10 +881,13 @@ export class NotificationService {
       // Notify admins
       const adminProfiles = await this.getAdminUsers();
       for (const admin of adminProfiles) {
+        const isDeveloper = admin.role === 'developer';
         const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
-          title: '❌ رحلة ملغاة',
-          message: `السائق ${driver.fullName} ألغى رحلة ${tripId} مع ${tripBookings.length} حجز.${reasonText}`,
+          title: isDeveloper ? '🔧 رحلة ملغاة - مراجعة تقنية' : '❌ رحلة ملغاة',
+          message: isDeveloper
+            ? `تنبيه مطور: ${driverName} ألغى رحلة ${tripId} وكان بها ${tripBookings.length} حجوزات.${reasonText}`
+            : `السائق ${driverName} ألغى رحلة ${tripId} مع ${tripBookings.length} حجز.${reasonText}`,
           type: NotificationType.TRIP_CANCELLED,
           category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.HIGH,
@@ -809,7 +896,9 @@ export class NotificationService {
           metadata: {
             affectedBookings: tripBookings.length,
             refundsRequired: tripBookings.length,
-            reason: reason
+            reason: reason,
+            driverName,
+            audience: isDeveloper ? 'developer' : 'admin'
           }
         });
         notifications.push(adminNotification);
@@ -835,6 +924,7 @@ export class NotificationService {
 
       const tripBookings = allBookings.filter(b => b.tripId === tripId);
       const notifications = [];
+      const driverName = this.resolveProfileName(driver);
 
       // Notify driver
       const driverNotification = await this.sendSmartNotification({
@@ -859,15 +949,17 @@ export class NotificationService {
           const passengerNotification = await this.sendSmartNotification({
             userId: booking.passengerId,
             title: '🚗 بدأت رحلتك!',
-            message: `بدأت رحلتك مع السائق ${driver?.fullName}. رقم الهاتف: ${driver?.phone}`,
+            message: `بدأت رحلتك مع السائق ${driverName}. رقم الهاتف: ${driver?.phone}`,
             type: NotificationType.TRIP_STARTING,
             category: NotificationCategory.TRIP,
             priority: NotificationPriority.HIGH,
             relatedId: tripId,
             relatedType: 'trip',
             metadata: {
+              driverName,
               driverPhone: driver?.phone,
-              departureTime: trip.departureTime
+              departureTime: trip.departureTime,
+              audience: 'passenger'
             }
           });
           notifications.push(passengerNotification);
@@ -999,15 +1091,17 @@ export class NotificationService {
       const user = await BrowserDatabaseService.getProfile(userId);
       if (!user) throw new Error('User not found');
 
+      const userName = this.resolveProfileName(user);
       const roleMessages = {
         passenger: 'مرحباً بك في منصة مشاركة الركوب! يمكنك الآن البحث عن رحلات وحجز مقاعد بسهولة.',
         driver: 'مرحباً بك كسائق في DZ Taxi! يمكنك الآن إنشاء الرحلات ومشاركة مقاعدك مع الراكبين.',
-        admin: 'مرحباً بك في لوحة إدارة DZ Taxi. يمكنك إدارة النظام بالكامل.'
+        admin: 'مرحباً بك في لوحة إدارة DZ Taxi. يمكنك إدارة النظام بالكامل.',
+        developer: 'مرحباً بك في لوحة المطور. يمكنك مراقبة التكاملات ومتابعة النظام بدقة.'
       };
 
       const notification = await this.sendSmartNotification({
         userId,
-        title: `مرحباً بك يا ${user.fullName}! 🎉`,
+        title: `مرحباً بك يا ${userName}! 🎉`,
         message: roleMessages[userRole as keyof typeof roleMessages] || roleMessages.passenger,
         type: NotificationType.ACCOUNT_VERIFIED,
         category: NotificationCategory.USER,
@@ -1015,7 +1109,8 @@ export class NotificationService {
         metadata: {
           userRole,
           welcomeType: 'new_user',
-          registrationDate: new Date().toISOString()
+          registrationDate: new Date().toISOString(),
+          displayName: userName
         }
       });
 
@@ -1029,27 +1124,28 @@ export class NotificationService {
   // New user registration notification for admins
   static async notifyNewUserRegistration(data: {
     userId: string;
-    userRole: 'driver' | 'passenger' | 'admin';
+    userRole: 'driver' | 'passenger' | 'admin' | 'developer';
     userName: string;
     userEmail: string;
   }) {
     try {
       const notifications = [];
-      
+
       // Get all admin users
       const adminProfiles = await this.getAdminUsers();
-      
+
       const roleEmojis = {
         driver: '🚗',
         passenger: '👤',
-        admin: '🛡️'
+        admin: '🛡️',
+        developer: '🛠️'
       };
 
       for (const admin of adminProfiles) {
         const adminNotification = await this.sendSmartNotification({
           userId: admin.id,
           title: `${roleEmojis[data.userRole]} مستخدم جديد`,
-          message: `انضم ${data.userName} (ك${data.userRole === 'driver' ? 'سائق' : data.userRole === 'passenger' ? 'راكب' : 'مدير'}) إلى المنصة. البريد: ${data.userEmail}`,
+          message: `انضم ${data.userName} (ك${data.userRole === 'driver' ? 'سائق' : data.userRole === 'passenger' ? 'راكب' : data.userRole === 'developer' ? 'مطور' : 'مدير'}) إلى المنصة. البريد: ${data.userEmail}`,
           type: NotificationType.USER_REGISTRATION,
           category: NotificationCategory.SYSTEM,
           priority: NotificationPriority.MEDIUM,
@@ -1059,7 +1155,8 @@ export class NotificationService {
             userRole: data.userRole,
             userName: data.userName,
             userEmail: data.userEmail,
-            registrationDate: new Date().toISOString()
+            registrationDate: new Date().toISOString(),
+            audience: admin.role === 'developer' ? 'developer' : 'admin'
           }
         });
         notifications.push(adminNotification);
@@ -1326,12 +1423,20 @@ export class NotificationService {
   static async getAdminUsers() {
     try {
       const allProfiles = await BrowserDatabaseService.getAllProfiles();
-      
+
       // Filter admin users
-      const adminUsers = allProfiles.filter(profile => profile.role === 'admin');
-      
+      const adminUsers = allProfiles.filter(profile => profile.role === 'admin' || profile.role === 'developer');
+
+      // Remove potential duplicates by ID
+      const uniqueById = new Map<string, typeof adminUsers[number]>();
+      for (const profile of adminUsers) {
+        if (!uniqueById.has(profile.id)) {
+          uniqueById.set(profile.id, profile);
+        }
+      }
+
       // Return actual admin users only, don't create fake ones
-      return adminUsers;
+      return Array.from(uniqueById.values());
     } catch (error) {
       console.error('Error getting admin users:', error);
       return [];

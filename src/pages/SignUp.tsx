@@ -202,10 +202,10 @@ const SignUp = () => {
       if (createdUser) {
         try {
           const { NotificationService } = await import('@/integrations/database/notificationService');
-          await NotificationService.notifyWelcomeUser(createdUser.id, role as 'driver' | 'passenger' | 'admin');
+          await NotificationService.notifyWelcomeUser(createdUser.id, role as 'driver' | 'passenger' | 'admin' | 'developer');
           await NotificationService.notifyNewUserRegistration({
             userId: createdUser.id,
-            userRole: role as 'driver' | 'passenger' | 'admin',
+            userRole: role as 'driver' | 'passenger' | 'admin' | 'developer',
             userName: `${firstName} ${lastName}`,
             userEmail: email,
           });

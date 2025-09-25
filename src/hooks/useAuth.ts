@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
-import { toast } from '@/hooks/use-toast';
 
 interface Profile {
   id: string;
   email: string | null;
+  full_name: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
   role: string;
   avatar_url: string | null;
+  language: string | null;
   wilaya: string | null;
   commune: string | null;
   address: string | null;
@@ -58,42 +59,52 @@ export const useAuth = () => {
   const fetchProfile = async (userId: string) => {
     try {
       // First, try to get the profile with all required fields
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, phone, role, avatar_url, is_verified, language, created_at, updated_at')
+        .select('id, email, full_name, first_name, last_name, phone, role, avatar_url, is_verified, language, created_at, updated_at')
         .eq('id', userId)
         .maybeSingle();
 
-      // If no profile exists or there was an error, create one
-      if (!data || error) {
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+      }
+
+      // If no profile exists, synthesize one from metadata without attempting a client-side insert
+      if (!data) {
         const { data: userData } = await supabase.auth.getUser();
         if (userData.user) {
-          const profileData = {
+          const metadata = userData.user.user_metadata || {};
+          const normalizedRole = (metadata.role === 'driver'
+            || metadata.role === 'passenger'
+            || metadata.role === 'admin'
+            || metadata.role === 'developer')
+            ? metadata.role
+            : 'passenger';
+
+          const fallbackProfile: Profile = {
             id: userId,
-            email: userData.user.email || '',
-            full_name: userData.user.user_metadata?.full_name || userData.user.user_metadata?.name || '',
-            phone: userData.user.user_metadata?.phone || null,
-            role: 'rider',
-            avatar_url: userData.user.user_metadata?.avatar_url || null,
+            email: userData.user.email || null,
+            full_name: metadata.full_name || metadata.name || null,
+            first_name: metadata.first_name || null,
+            last_name: metadata.last_name || null,
+            phone: metadata.phone || null,
+            role: normalizedRole,
+            avatar_url: metadata.avatar_url || metadata.avatarURL || null,
+            language: metadata.language || 'ar',
+            wilaya: metadata.wilaya || null,
+            commune: metadata.commune || null,
+            address: metadata.address || null,
+            date_of_birth: metadata.date_of_birth || null,
             is_verified: false,
-            language: 'ar'
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           };
-          
-          const { data: insertData, error: insertError } = await supabase
-            .from('profiles')
-            .insert([profileData])
-            .select('id, email, full_name, phone, role, avatar_url, is_verified, language, created_at, updated_at')
-            .single();
-            
-          if (!insertError && insertData) {
-            return insertData;
-          } else {
-            console.error('Error creating profile:', insertError);
-          }
+
+          return fallbackProfile;
         }
       }
 
-      return data;
+      return data as (Profile | null);
     } catch (error) {
       console.error('Error in fetchProfile:', error);
       return null;

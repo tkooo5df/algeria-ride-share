@@ -297,7 +297,7 @@ export class BookingTrackingService {
   }
 
   // Get all possible status transitions for a booking
-  static getAvailableActions(currentStatus: string, userRole: 'driver' | 'passenger' | 'admin') {
+  static getAvailableActions(currentStatus: string, userRole: 'driver' | 'passenger' | 'admin' | 'developer') {
     const actions: Array<{
       action: string;
       label: string;

@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { NotificationService } from "@/integrations/database/notificationService";
 import { toast } from "@/hooks/use-toast";
+import { getDisplayName } from "@/utils/displayName";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -50,15 +51,14 @@ const Header = () => {
     }
   }, [isAuthenticated, isLocal, navigate]);
   
-  // Helper function to get display name
-  const getDisplayName = (user: any) => {
-    if (!user) return 'المستخدم';
-    if (isLocal) {
-      return user.fullName || `${user.firstName} ${user.lastName}` || 'المستخدم';
-    } else {
-      return user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'المستخدم';
-    }
-  };
+  const displayName = getDisplayName([
+    currentUser,
+    profile,
+    session?.user?.user_metadata,
+  ], {
+    fallback: 'عضو',
+    email: session?.user?.email ?? currentUser?.email ?? null,
+  });
 
   const handleSignOut = async () => {
     try {
@@ -327,16 +327,16 @@ const Header = () => {
                   <Button variant="ghost" className="gap-2 px-3">
                     <User className="h-4 w-4" />
                     <span className="text-sm">
-                      {getDisplayName(currentUser)}
+                      {displayName}
                     </span>
                   </Button>
                   <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 min-w-[180px] z-50">
                     <div className="p-2 border-b border-border">
-                      <p className="text-sm font-medium">{getDisplayName(currentUser)}</p>
+                      <p className="text-sm font-medium">{displayName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {currentUser?.role === 'driver' ? 'سائق' : 
-                         currentUser?.role === 'passenger' ? 'راكب' : 
-                         currentUser?.role === 'admin' ? 'مدير' : 'مستخدم'}
+                        {currentUser?.role === 'driver' ? 'سائق' :
+                         currentUser?.role === 'passenger' ? 'راكب' :
+                         currentUser?.role === 'admin' ? 'مدير' : 'عضو'}
                       </p>
                     </div>
                     <Link 
@@ -440,11 +440,11 @@ const Header = () => {
                 {isAuthenticated ? (
                   <>
                     <div className="px-3 py-2 border-b border-border">
-                      <p className="text-sm font-medium">{getDisplayName(currentUser)}</p>
+                      <p className="text-sm font-medium">{displayName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {currentUser?.role === 'driver' ? 'سائق' : 
-                         currentUser?.role === 'passenger' ? 'راكب' : 
-                         currentUser?.role === 'admin' ? 'مدير' : 'مستخدم'}
+                        {currentUser?.role === 'driver' ? 'سائق' :
+                         currentUser?.role === 'passenger' ? 'راكب' :
+                         currentUser?.role === 'admin' ? 'مدير' : 'عضو'}
                       </p>
                     </div>
                     

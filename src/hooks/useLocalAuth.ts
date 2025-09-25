@@ -9,7 +9,7 @@ interface LocalUser {
   lastName: string;
   fullName: string;
   phone: string;
-  role: 'driver' | 'passenger' | 'admin';
+  role: 'driver' | 'passenger' | 'admin' | 'developer';
   wilaya: string;
   commune: string;
   address: string;
@@ -38,7 +38,7 @@ const mapProfileToLocalUser = (profile: any, fallbackId?: string, fallbackEmail?
     lastName,
     fullName,
     phone: profile?.phone ?? '',
-    role: (profile?.role ?? 'passenger') as 'driver' | 'passenger' | 'admin',
+    role: (profile?.role ?? 'passenger') as 'driver' | 'passenger' | 'admin' | 'developer',
     wilaya: profile?.wilaya ?? 'الجزائر',
     commune: profile?.commune ?? 'غير محدد',
     address: profile?.address ?? 'غير محدد',
