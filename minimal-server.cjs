@@ -94,8 +94,10 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+  const distExists = fs.existsSync(distPath);
+
   // Serve static files from dist directory
-  if (fs.existsSync(distPath)) {
+  if (distExists) {
     const filePath = path.join(distPath, req.url);
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       console.log('📄 Serving static file:', req.url);
@@ -113,13 +115,26 @@ const server = http.createServer((req, res) => {
         '.gif': 'image/gif',
         '.svg': 'image/svg+xml'
       }[ext] || 'application/octet-stream';
-      
+
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(content);
       return;
     }
+
+    // SPA fallback: serve index.html for client-side routes
+    const indexPath = path.join(distPath, 'index.html');
+    const accepts = req.headers['accept'] || '';
+    const wantsHtml = accepts.includes('text/html') || accepts === '*/*';
+
+    if (req.method === 'GET' && fs.existsSync(indexPath) && wantsHtml) {
+      console.log('🔄 SPA fallback triggered for:', req.url);
+      const indexContent = fs.readFileSync(indexPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(indexContent);
+      return;
+    }
   }
-  
+
   // 404 for everything else
   console.log('❓ 404 for:', req.url);
   res.writeHead(404, { 'Content-Type': 'application/json' });
