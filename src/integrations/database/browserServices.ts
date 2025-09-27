@@ -234,7 +234,76 @@ const parseSettingValue = (value: string) => {
   }
 };
 
+const subscribeToTable = (
+  channelName: string,
+  table: string,
+  callback: () => void | Promise<void>,
+  filter?: string
+) => {
+  const config = filter
+    ? { event: '*', schema: 'public', table, filter }
+    : { event: '*', schema: 'public', table };
+
+  const channel = supabase
+    .channel(channelName)
+    .on('postgres_changes', config, () => {
+      try {
+        const maybePromise = callback();
+        if (maybePromise && typeof (maybePromise as any).then === 'function') {
+          (maybePromise as Promise<void>).catch((error) => {
+            console.error(`Error handling ${table} change callback:`, error);
+          });
+        }
+      } catch (error) {
+        console.error(`Error triggering ${table} change callback:`, error);
+      }
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel).catch((error) => {
+      console.error(`Error removing Supabase channel ${channelName}:`, error);
+    });
+  };
+};
+
 class SupabaseDatabaseService {
+  static subscribeToVehicles(onChange: () => void | Promise<void>, driverId?: string) {
+    const filter = driverId ? `driver_id=eq.${driverId}` : undefined;
+    return subscribeToTable(`vehicles_${driverId ?? 'all'}`, 'vehicles', onChange, filter);
+  }
+
+  static subscribeToTrips(onChange: () => void | Promise<void>, driverId?: string) {
+    const filter = driverId ? `driver_id=eq.${driverId}` : undefined;
+    return subscribeToTable(`trips_${driverId ?? 'all'}`, 'trips', onChange, filter);
+  }
+
+  static subscribeToBookings(
+    onChange: () => void | Promise<void>,
+    params?: { driverId?: string; passengerId?: string }
+  ) {
+    let filter: string | undefined;
+
+    if (params?.driverId && params?.passengerId) {
+      filter = undefined;
+    } else if (params?.driverId) {
+      filter = `driver_id=eq.${params.driverId}`;
+    } else if (params?.passengerId) {
+      filter = `passenger_id=eq.${params.passengerId}`;
+    }
+
+    const key = ['bookings', params?.driverId ?? 'all', params?.passengerId ?? 'all'].join('_');
+    return subscribeToTable(key, 'bookings', onChange, filter);
+  }
+
+  static subscribeToProfiles(onChange: () => void | Promise<void>) {
+    return subscribeToTable('profiles_all', 'profiles', onChange);
+  }
+
+  static getWilayaName(id: number) {
+    return getWilayaNameById(id);
+  }
+
   // Profile operations
   static async createProfile(data: any) {
     if (!data.id) {
@@ -318,7 +387,9 @@ class SupabaseDatabaseService {
 
   // Vehicle operations
   static async createVehicle(data: any) {
+    console.log('DEBUG: Creating vehicle with data:', data);
     const payload = toVehicleInsert(data);
+    console.log('DEBUG: Vehicle payload for Supabase:', payload);
     const { data: result, error } = await supabase
       .from('vehicles')
       .insert(payload)
@@ -330,10 +401,12 @@ class SupabaseDatabaseService {
       throw error;
     }
 
+    console.log('DEBUG: Vehicle created successfully:', result);
     return mapVehicle(result);
   }
 
   static async getVehicles(driverId?: string) {
+    console.log('DEBUG: getVehicles called with driverId:', driverId);
     let query = supabase.from('vehicles').select('*').order('created_at', { ascending: false });
     if (driverId) {
       query = query.eq('driver_id', driverId);
@@ -346,10 +419,16 @@ class SupabaseDatabaseService {
       throw error;
     }
 
-    return (data ?? []).map(mapVehicle).filter(Boolean);
+    console.log('DEBUG: Raw vehicles data from Supabase:', data);
+    console.log('DEBUG: Number of vehicles found:', data?.length || 0);
+    const mappedVehicles = (data ?? []).map(mapVehicle).filter(Boolean);
+    console.log('DEBUG: Mapped vehicles:', mappedVehicles);
+    console.log('DEBUG: Number of mapped vehicles:', mappedVehicles.length);
+    return mappedVehicles;
   }
 
   static async getVehiclesByDriver(driverId: string) {
+    console.log('DEBUG: getVehiclesByDriver called with driverId:', driverId);
     return this.getVehicles(driverId);
   }
 
@@ -369,6 +448,7 @@ class SupabaseDatabaseService {
   }
 
   static async updateVehicle(id: string, data: TablesUpdate<'vehicles'>) {
+    console.log('DEBUG: Supabase updateVehicle called with ID:', id, 'Data:', data);
     const { data: result, error } = await supabase
       .from('vehicles')
       .update({ ...data, updated_at: new Date().toISOString() })
@@ -381,20 +461,49 @@ class SupabaseDatabaseService {
       throw error;
     }
 
+    console.log('DEBUG: Supabase updateVehicle result:', result);
     return mapVehicle(result);
   }
 
   static async deleteVehicle(id: string) {
-    const { error } = await supabase
+    console.log('DEBUG: Supabase deleteVehicle called with ID:', id);
+    
+    // First, let's check if the vehicle exists
+    const { data: checkData, error: checkError } = await supabase
+      .from('vehicles')
+      .select('id, driver_id')
+      .eq('id', id);
+    
+    console.log('DEBUG: Vehicle check before deletion - data:', checkData, 'error:', checkError);
+    console.log('DEBUG: Current user ID from auth:', (await supabase.auth.getUser()).data.user?.id);
+    console.log('DEBUG: Vehicle driver_id:', checkData?.[0]?.driver_id);
+    
+    if (checkError) {
+      console.error('Error checking vehicle before deletion:', checkError);
+      throw checkError;
+    }
+    
+    if (!checkData || checkData.length === 0) {
+      console.log('DEBUG: Vehicle not found, nothing to delete');
+      return true;
+    }
+    
+    // Now delete the vehicle
+    console.log('DEBUG: Attempting to delete vehicle with ID:', id);
+    const { data, error } = await supabase
       .from('vehicles')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
     if (error) {
       console.error('Error deleting vehicle:', error);
       throw error;
     }
 
+    console.log('DEBUG: Supabase delete response - data:', data, 'error:', error);
+    console.log('DEBUG: Number of deleted records:', data?.length || 0);
+    console.log('DEBUG: Vehicle deleted successfully from Supabase');
     return true;
   }
 

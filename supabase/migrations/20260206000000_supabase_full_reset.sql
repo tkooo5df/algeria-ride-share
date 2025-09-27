@@ -445,6 +445,43 @@ CREATE TABLE IF NOT EXISTS vehicles (
 
 CREATE INDEX IF NOT EXISTS idx_vehicles_driver_id ON vehicles(driver_id);
 
+-- Enable RLS on vehicles table
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+
+-- Policies for vehicles table
+DROP POLICY IF EXISTS "Drivers can read their own vehicles" ON vehicles;
+CREATE POLICY "Drivers can read their own vehicles"
+  ON vehicles FOR SELECT
+  USING (auth.uid() = driver_id);
+
+DROP POLICY IF EXISTS "Drivers can insert their own vehicles" ON vehicles;
+CREATE POLICY "Drivers can insert their own vehicles"
+  ON vehicles FOR INSERT
+  WITH CHECK (auth.uid() = driver_id);
+
+DROP POLICY IF EXISTS "Drivers can update their own vehicles" ON vehicles;
+CREATE POLICY "Drivers can update their own vehicles"
+  ON vehicles FOR UPDATE
+  USING (auth.uid() = driver_id)
+  WITH CHECK (auth.uid() = driver_id);
+
+DROP POLICY IF EXISTS "Drivers can delete their own vehicles" ON vehicles;
+CREATE POLICY "Drivers can delete their own vehicles"
+  ON vehicles FOR DELETE
+  USING (auth.uid() = driver_id);
+
+-- Admins can manage all vehicles
+DROP POLICY IF EXISTS "Admins can manage all vehicles" ON vehicles;
+CREATE POLICY "Admins can manage all vehicles"
+  ON vehicles FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
 CREATE TABLE IF NOT EXISTS trips (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   driver_id uuid REFERENCES profiles(id) ON DELETE SET NULL,

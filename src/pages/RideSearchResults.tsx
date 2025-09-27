@@ -233,7 +233,7 @@ const RideSearchResults = () => {
                     <SelectValue placeholder="اختر النوع" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">الكل</SelectItem>
+                    <SelectItem value="all">الكل</SelectItem>
                     <SelectItem value="car">سيارة</SelectItem>
                     <SelectItem value="van"> VAN</SelectItem>
                     <SelectItem value="bus">حافلة</SelectItem>

@@ -101,6 +101,7 @@ const UserDashboard = () => {
   // Vehicle management form
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [vehicleForm, setVehicleForm] = useState({
+    id: "",
     make: "",
     model: "",
     year: "",
@@ -134,10 +135,15 @@ const UserDashboard = () => {
 
   // Fetch driver's vehicles (if user is driver)
   const fetchVehicles = async () => {
-    if (!user || userProfile?.role !== 'driver') return;
+    if (!user || userProfile?.role !== 'driver') {
+      console.log('DEBUG: User not authorized to fetch vehicles');
+      return;
+    }
     
     try {
+      console.log('DEBUG: Fetching vehicles for driver:', user.id);
       const data = await BrowserDatabaseService.getVehiclesByDriver(user.id);
+      console.log('DEBUG: Fetched vehicles:', data);
       setVehicles(data || []);
     } catch (error) {
       console.error('Error fetching vehicles:', error);
@@ -524,6 +530,7 @@ const UserDashboard = () => {
 
       setShowVehicleForm(false);
       setVehicleForm({
+        id: "",
         make: "",
         model: "",
         year: "",
@@ -543,10 +550,12 @@ const UserDashboard = () => {
     }
   };
 
-  // Handle vehicle update
+  // Add debug logs to handleUpdateVehicle
   const handleUpdateVehicle = async (vehicleId: string, data: any) => {
+    console.log('DEBUG: Updating vehicle with ID:', vehicleId, 'Data:', data);
     try {
-      await BrowserDatabaseService.updateVehicle(vehicleId, data);
+      const result = await BrowserDatabaseService.updateVehicle(vehicleId, data);
+      console.log('DEBUG: Vehicle update result:', result);
       
       toast({
         title: "تم تحديث المركبة",
@@ -566,10 +575,16 @@ const UserDashboard = () => {
 
   // Handle vehicle deletion
   const handleDeleteVehicle = async (vehicleId: string) => {
-    if (!user || userProfile?.role !== 'driver') return;
+    console.log('DEBUG: handleDeleteVehicle called with vehicleId:', vehicleId);
+    if (!user || userProfile?.role !== 'driver') {
+      console.log('DEBUG: User not authorized to delete vehicle');
+      return;
+    }
 
     try {
+      console.log('DEBUG: Attempting to delete vehicle from Supabase...');
       await BrowserDatabaseService.deleteVehicle(vehicleId);
+      console.log('DEBUG: Vehicle deleted successfully from Supabase');
       
       toast({
         title: "تم حذف المركبة",
@@ -577,6 +592,7 @@ const UserDashboard = () => {
       });
       
       await Promise.all([fetchVehicles(), fetchTrips()]); // Refresh both since vehicle deletion affects trips
+      console.log('DEBUG: Data refreshed after vehicle deletion');
     } catch (error) {
       console.error('Error deleting vehicle:', error);
       toast({
@@ -587,10 +603,11 @@ const UserDashboard = () => {
     }
   };
 
-  // Handle vehicle toggle active status
+  // Add debug logs to handleToggleVehicleStatus
   const handleToggleVehicleStatus = async (vehicleId: string, isActive: boolean) => {
+    console.log('DEBUG: Toggling vehicle status for ID:', vehicleId, 'Current status:', isActive);
     try {
-      await BrowserDatabaseService.updateVehicle(vehicleId, { isActive: !isActive });
+      await BrowserDatabaseService.updateVehicle(vehicleId, { is_active: !isActive });
       
       // Send notification about vehicle status change
       try {
@@ -753,6 +770,111 @@ const UserDashboard = () => {
           icon: User,
           color: 'bg-gray-500'
         };
+    }
+  };
+
+  const handleEditVehicle = (vehicle: any) => {
+    console.log('DEBUG: handleEditVehicle called with vehicle:', vehicle);
+    setVehicleForm({
+      id: vehicle.id,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year.toString(),
+      color: vehicle.color,
+      licensePlate: vehicle.licensePlate,
+      seats: vehicle.seats.toString()
+    });
+    console.log('DEBUG: vehicleForm set to:', {
+      id: vehicle.id,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year.toString(),
+      color: vehicle.color,
+      licensePlate: vehicle.licensePlate,
+      seats: vehicle.seats.toString()
+    });
+    setShowVehicleForm(true);
+  };
+
+  // Handle vehicle form submission (both create and update)
+  const handleSubmitVehicleForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || userProfile?.role !== 'driver') return;
+
+    console.log('DEBUG: handleSubmitVehicleForm called with vehicleForm:', vehicleForm);
+
+    try {
+      if (vehicleForm.id) {
+        // Update existing vehicle
+        console.log('DEBUG: Updating existing vehicle with ID:', vehicleForm.id);
+        await handleUpdateVehicle(vehicleForm.id, {
+          make: vehicleForm.make,
+          model: vehicleForm.model,
+          year: parseInt(vehicleForm.year),
+          color: vehicleForm.color,
+          license_plate: vehicleForm.licensePlate,
+          seats: parseInt(vehicleForm.seats),
+        });
+      } else {
+        // Create new vehicle
+        await BrowserDatabaseService.createVehicle({
+          driverId: user.id.toString(),
+          make: vehicleForm.make,
+          model: vehicleForm.model,
+          year: parseInt(vehicleForm.year),
+          color: vehicleForm.color,
+          licensePlate: vehicleForm.licensePlate,
+          seats: parseInt(vehicleForm.seats),
+        });
+
+        // Send notifications about new vehicle
+        try {
+          const { NotificationService } = await import('@/integrations/database/notificationService');
+          
+          // Notify driver about successful vehicle addition
+          await NotificationService.notifyVehicleAdded({
+            driverId: user.id.toString(),
+            vehicleId: vehicleForm.id,
+            vehicleName: `${vehicleForm.make} ${vehicleForm.model}`,
+            licensePlate: vehicleForm.licensePlate
+          });
+          
+          // Notify admins about new vehicle for approval
+          await NotificationService.notifyAdminNewVehicle({
+            driverId: user.id.toString(),
+            driverName: userProfile.fullName,
+            vehicleId: vehicleForm.id,
+            vehicleDetails: `${vehicleForm.make} ${vehicleForm.model} (${vehicleForm.year}) - ${vehicleForm.licensePlate}`
+          });
+        } catch (notificationError) {
+          console.error('Error sending vehicle notifications:', notificationError);
+        }
+      }
+
+      toast({
+        title: vehicleForm.id ? "تم تحديث المركبة بنجاح" : "تم إضافة المركبة بنجاح",
+        description: vehicleForm.id ? "تم تحديث معلومات المركبة بنجاح" : "تم إضافة مركبتك الجديدة بنجاح",
+      });
+
+      setShowVehicleForm(false);
+      setVehicleForm({
+        id: "",
+        make: "",
+        model: "",
+        year: "",
+        color: "",
+        licensePlate: "",
+        seats: "4"
+      });
+
+      await fetchVehicles();
+    } catch (error) {
+      console.error('Error submitting vehicle form:', error);
+      toast({
+        title: "خطأ في إرسال النموذج",
+        description: "حدث خطأ أثناء إرسال النموذج. يرجى المحاولة مرة أخرى.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1111,10 +1233,10 @@ const UserDashboard = () => {
               {showVehicleForm && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>إضافة مركبة جديدة</CardTitle>
+                    <CardTitle>{vehicleForm.id ? "تعديل المركبة" : "إضافة مركبة جديدة"}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handleCreateVehicle} className="space-y-4">
+                    <form onSubmit={handleSubmitVehicleForm} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">الماركة</label>
@@ -1195,7 +1317,7 @@ const UserDashboard = () => {
                       
                       <div className="flex gap-2">
                         <Button type="submit" className="flex-1">
-                          إضافة المركبة
+                          {vehicleForm.id ? "تحديث المركبة" : "إضافة المركبة"}
                         </Button>
                         <Button type="button" variant="outline" onClick={() => setShowVehicleForm(false)}>
                           إلغاء
@@ -1260,13 +1382,7 @@ const UserDashboard = () => {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => {
-                                // TODO: Add edit functionality
-                                toast({
-                                  title: "قريباً",
-                                  description: "ميزة التعديل ستكون متاحة قريباً",
-                                });
-                              }}
+                              onClick={() => handleEditVehicle(vehicle)}
                             >
                               <Edit className="h-4 w-4 mr-2" />
                               تعديل
@@ -1275,8 +1391,12 @@ const UserDashboard = () => {
                               variant="outline" 
                               size="sm"
                               onClick={() => {
+                                console.log('DEBUG: Delete button clicked for vehicle:', vehicle.id);
                                 if (confirm('هل أنت متأكد من حذف هذه المركبة؟ سيتم حذف جميع الرحلات المرتبطة بها.')) {
+                                  console.log('DEBUG: User confirmed deletion, calling handleDeleteVehicle');
                                   handleDeleteVehicle(vehicle.id);
+                                } else {
+                                  console.log('DEBUG: User cancelled deletion');
                                 }
                               }}
                             >
